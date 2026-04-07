@@ -45,6 +45,7 @@ async def main() -> None:
     dp.include_router(start.router)
     dp.include_router(transactions.router)
     dp.include_router(stats.router)
+    dp.include_router(start.unknown_router)  # Must be last — catches all unhandled messages
 
     webhook_app = create_webhook_app(
         bot=bot,

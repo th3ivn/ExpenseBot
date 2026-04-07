@@ -1,6 +1,7 @@
 import logging
 import math
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -9,6 +10,7 @@ from aiogram.types import CallbackQuery, Message
 from bot.database.transactions import (
     TRANSACTIONS_PER_PAGE,
     count_transactions,
+    delete_transaction,
     get_transactions,
 )
 from bot.keyboards.main import (
@@ -19,6 +21,15 @@ from bot.keyboards.main import (
 logger = logging.getLogger(__name__)
 router = Router()
 
+_KYIV = ZoneInfo("Europe/Kyiv")
+_EXPORT_LIMIT = 1000
+
+_UA_MONTHS_NOMINATIVE = {
+    1: "січень", 2: "лютий", 3: "березень", 4: "квітень",
+    5: "травень", 6: "червень", 7: "липень", 8: "серпень",
+    9: "вересень", 10: "жовтень", 11: "листопад", 12: "грудень",
+}
+
 
 def _format_transactions(rows: list, page: int, total_pages: int, title: str) -> str:
     if not rows:
@@ -28,10 +39,30 @@ def _format_transactions(rows: list, page: int, total_pages: int, title: str) ->
     for row in rows:
         date_str = row["transaction_date"].strftime("%d.%m.%Y %H:%M")
         lines.append(
-            f"💰 {float(row['amount']):.2f} — {row['merchant']}\n"
+            f"💰 {float(row['amount']):.2f} ₴ — {row['merchant']}\n"
             f"   📅 {date_str}"
         )
     return "\n\n".join(lines)
+
+
+def _format_export(rows: list, now: datetime) -> str:
+    month_name = _UA_MONTHS_NOMINATIVE.get(now.month, str(now.month))
+    header = f"📋 Експорт за {month_name} {now.year}"
+
+    if not rows:
+        return f"{header}\n\nНемає транзакцій за цей місяць."
+
+    lines = [header, ""]
+    total = 0.0
+    for i, row in enumerate(rows, 1):
+        date_str = row["transaction_date"].strftime("%d.%m")
+        amount = float(row["amount"])
+        total += amount
+        lines.append(f"{i}. {date_str} — {row['merchant']} — {amount:.2f} ₴")
+
+    lines.append("")
+    lines.append(f"Загальна сума: {total:.2f} ₴")
+    return "\n".join(lines)
 
 
 async def _show_transactions(
@@ -42,6 +73,7 @@ async def _show_transactions(
     prefix: str,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
+    edit: bool = False,
 ) -> None:
     total = await count_transactions(user_id, date_from=date_from, date_to=date_to)
     total_pages = math.ceil(total / TRANSACTIONS_PER_PAGE) if total > 0 else 1
@@ -58,14 +90,16 @@ async def _show_transactions(
     text = _format_transactions(rows, page, total_pages, title)
     keyboard = get_transactions_pagination_keyboard(page, total_pages, prefix=prefix)
 
-    await message.answer(text, reply_markup=keyboard)
+    if edit:
+        await message.edit_text(text, reply_markup=keyboard)
+    else:
+        await message.answer(text, reply_markup=keyboard)
 
 
-# ── Reply keyboard buttons ────────────────────────────────────────────────────
+# ── Slash commands ────────────────────────────────────────────────────────────
 
-@router.message(F.text == "🧾 Транзакції")
 @router.message(Command("transactions"))
-async def btn_transactions(message: Message) -> None:
+async def cmd_transactions(message: Message) -> None:
     await _show_transactions(
         message,
         user_id=message.from_user.id,
@@ -75,10 +109,9 @@ async def btn_transactions(message: Message) -> None:
     )
 
 
-@router.message(F.text == "📅 Цей тиждень")
 @router.message(Command("week"))
-async def btn_week(message: Message) -> None:
-    now = datetime.now()
+async def cmd_week(message: Message) -> None:
+    now = datetime.now(_KYIV)
     date_from = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -93,10 +126,9 @@ async def btn_week(message: Message) -> None:
     )
 
 
-@router.message(F.text == "📆 Цей місяць")
 @router.message(Command("month"))
-async def btn_month(message: Message) -> None:
-    now = datetime.now()
+async def cmd_month(message: Message) -> None:
+    now = datetime.now(_KYIV)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     await _show_transactions(
         message,
@@ -107,6 +139,73 @@ async def btn_month(message: Message) -> None:
         date_from=date_from,
         date_to=now,
     )
+
+
+# ── Menu callbacks ────────────────────────────────────────────────────────────
+
+@router.callback_query(F.data == "menu_transactions")
+async def cb_menu_transactions(callback: CallbackQuery) -> None:
+    await _show_transactions(
+        callback.message,
+        user_id=callback.from_user.id,
+        page=0,
+        title="🧾 Останні транзакції",
+        prefix="txn",
+        edit=True,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu_week")
+async def cb_menu_week(callback: CallbackQuery) -> None:
+    now = datetime.now(_KYIV)
+    date_from = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    await _show_transactions(
+        callback.message,
+        user_id=callback.from_user.id,
+        page=0,
+        title="📅 Транзакції за цей тиждень",
+        prefix="week",
+        date_from=date_from,
+        date_to=now,
+        edit=True,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu_month")
+async def cb_menu_month(callback: CallbackQuery) -> None:
+    now = datetime.now(_KYIV)
+    date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    await _show_transactions(
+        callback.message,
+        user_id=callback.from_user.id,
+        page=0,
+        title="📆 Транзакції за цей місяць",
+        prefix="month",
+        date_from=date_from,
+        date_to=now,
+        edit=True,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "menu_export")
+async def cb_menu_export(callback: CallbackQuery) -> None:
+    now = datetime.now(_KYIV)
+    date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    rows = await get_transactions(
+        callback.from_user.id,
+        limit=_EXPORT_LIMIT,
+        offset=0,
+        date_from=date_from,
+        date_to=now,
+    )
+    text = _format_export(rows, now)
+    await callback.message.edit_text(text, reply_markup=get_back_to_menu_keyboard())
+    await callback.answer()
 
 
 # ── Pagination callbacks ──────────────────────────────────────────────────────
@@ -120,6 +219,7 @@ async def cb_txn_page(callback: CallbackQuery) -> None:
         page=page,
         title="🧾 Останні транзакції",
         prefix="txn",
+        edit=True,
     )
     await callback.answer()
 
@@ -127,7 +227,7 @@ async def cb_txn_page(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("week_page_"))
 async def cb_week_page(callback: CallbackQuery) -> None:
     page = int(callback.data.split("_")[-1])
-    now = datetime.now()
+    now = datetime.now(_KYIV)
     date_from = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -139,6 +239,7 @@ async def cb_week_page(callback: CallbackQuery) -> None:
         prefix="week",
         date_from=date_from,
         date_to=now,
+        edit=True,
     )
     await callback.answer()
 
@@ -146,7 +247,7 @@ async def cb_week_page(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("month_page_"))
 async def cb_month_page(callback: CallbackQuery) -> None:
     page = int(callback.data.split("_")[-1])
-    now = datetime.now()
+    now = datetime.now(_KYIV)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     await _show_transactions(
         callback.message,
@@ -156,5 +257,17 @@ async def cb_month_page(callback: CallbackQuery) -> None:
         prefix="month",
         date_from=date_from,
         date_to=now,
+        edit=True,
     )
     await callback.answer()
+
+
+# ── Delete callback ───────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("delete_tx_"))
+async def cb_delete_transaction(callback: CallbackQuery) -> None:
+    tx_id = int(callback.data.split("_")[-1])
+    await delete_transaction(tx_id, callback.from_user.id)
+    await callback.message.edit_text("❌ Транзакцію видалено")
+    await callback.answer()
+

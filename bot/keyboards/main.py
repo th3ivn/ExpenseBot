@@ -1,25 +1,32 @@
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
 )
 
 
-def get_main_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
+def get_main_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
-                KeyboardButton(text="🧾 Транзакції"),
-                KeyboardButton(text="📊 Статистика"),
+                InlineKeyboardButton(text="🧾 Транзакції", callback_data="menu_transactions"),
+                InlineKeyboardButton(text="📊 Статистика", callback_data="menu_stats"),
             ],
             [
-                KeyboardButton(text="📅 Цей тиждень"),
-                KeyboardButton(text="📆 Цей місяць"),
+                InlineKeyboardButton(text="📅 Цей тиждень", callback_data="menu_week"),
+                InlineKeyboardButton(text="📆 Цей місяць", callback_data="menu_month"),
             ],
-        ],
-        resize_keyboard=True,
-        persistent=True,
+            [
+                InlineKeyboardButton(text="📋 Експорт за місяць", callback_data="menu_export"),
+            ],
+        ]
+    )
+
+
+def get_delete_transaction_keyboard(tx_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🗑️ Видалити", callback_data=f"delete_tx_{tx_id}")]
+        ]
     )
 
 
