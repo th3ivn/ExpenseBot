@@ -17,12 +17,14 @@ from bot.keyboards.main import (
     get_back_to_menu_keyboard,
     get_transactions_pagination_keyboard,
 )
+from bot.utils import safe_edit_text
 
 logger = logging.getLogger(__name__)
 router = Router()
 
 _KYIV = ZoneInfo("Europe/Kyiv")
 _EXPORT_LIMIT = 1000
+_MAX_MESSAGE_LENGTH = 4000  # Safe margin below Telegram's 4096-char limit
 
 _UA_MONTHS_NOMINATIVE = {
     1: "січень", 2: "лютий", 3: "березень", 4: "квітень",
@@ -60,9 +62,21 @@ def _format_export(rows: list, now: datetime) -> str:
         total += amount
         lines.append(f"{i}. {date_str} — {row['merchant']} — {amount:.2f} ₴")
 
-    lines.append("")
-    lines.append(f"Загальна сума: {total:.2f} ₴")
-    return "\n".join(lines)
+    footer = f"\nЗагальна сума: {total:.2f} ₴"
+
+    text = "\n".join(lines) + "\n" + footer
+    if len(text) > _MAX_MESSAGE_LENGTH:
+        # Trim transaction lines until the message fits within Telegram's limit
+        total_rows = len(rows)
+        while len(text) > _MAX_MESSAGE_LENGTH and len(lines) > 3:
+            lines.pop()
+            shown = len(lines) - 2  # subtract header and empty line
+            text = (
+                "\n".join(lines)
+                + f"\n\n... (показано {shown} з {total_rows} транзакцій)\n{footer}"
+            )
+
+    return text
 
 
 async def _show_transactions(
@@ -91,7 +105,7 @@ async def _show_transactions(
     keyboard = get_transactions_pagination_keyboard(page, total_pages, prefix=prefix)
 
     if edit:
-        await message.edit_text(text, reply_markup=keyboard)
+        await safe_edit_text(message, text, reply_markup=keyboard)
     else:
         await message.answer(text, reply_markup=keyboard)
 
@@ -111,7 +125,7 @@ async def cmd_transactions(message: Message) -> None:
 
 @router.message(Command("week"))
 async def cmd_week(message: Message) -> None:
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -128,7 +142,7 @@ async def cmd_week(message: Message) -> None:
 
 @router.message(Command("month"))
 async def cmd_month(message: Message) -> None:
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     await _show_transactions(
         message,
@@ -158,7 +172,7 @@ async def cb_menu_transactions(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "menu_week")
 async def cb_menu_week(callback: CallbackQuery) -> None:
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -177,7 +191,7 @@ async def cb_menu_week(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "menu_month")
 async def cb_menu_month(callback: CallbackQuery) -> None:
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     await _show_transactions(
         callback.message,
@@ -194,7 +208,7 @@ async def cb_menu_month(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "menu_export")
 async def cb_menu_export(callback: CallbackQuery) -> None:
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     rows = await get_transactions(
         callback.from_user.id,
@@ -204,7 +218,7 @@ async def cb_menu_export(callback: CallbackQuery) -> None:
         date_to=now,
     )
     text = _format_export(rows, now)
-    await callback.message.edit_text(text, reply_markup=get_back_to_menu_keyboard())
+    await safe_edit_text(callback.message, text, reply_markup=get_back_to_menu_keyboard())
     await callback.answer()
 
 
@@ -227,7 +241,7 @@ async def cb_txn_page(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("week_page_"))
 async def cb_week_page(callback: CallbackQuery) -> None:
     page = int(callback.data.split("_")[-1])
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -247,7 +261,7 @@ async def cb_week_page(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("month_page_"))
 async def cb_month_page(callback: CallbackQuery) -> None:
     page = int(callback.data.split("_")[-1])
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     await _show_transactions(
         callback.message,
@@ -267,7 +281,11 @@ async def cb_month_page(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("delete_tx_"))
 async def cb_delete_transaction(callback: CallbackQuery) -> None:
     tx_id = int(callback.data.split("_")[-1])
-    await delete_transaction(tx_id, callback.from_user.id)
-    await callback.message.edit_text("❌ Транзакцію видалено")
+    deleted = await delete_transaction(tx_id, callback.from_user.id)
+    if deleted:
+        text = "❌ Транзакцію видалено"
+    else:
+        text = "⚠️ Транзакцію не знайдено (можливо, вже видалена)"
+    await safe_edit_text(callback.message, text)
     await callback.answer()
 

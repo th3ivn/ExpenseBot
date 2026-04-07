@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 
@@ -10,10 +11,18 @@ _pool: Optional[asyncpg.Pool] = None
 
 async def create_pool(database_url: str) -> asyncpg.Pool:
     global _pool
-    _pool = await asyncpg.create_pool(database_url)
-    await _init_db(_pool)
-    logger.info("Database pool created")
-    return _pool
+    for attempt in range(3):
+        try:
+            _pool = await asyncpg.create_pool(database_url, min_size=2, max_size=10)
+            await _init_db(_pool)
+            logger.info("Database pool created")
+            return _pool
+        except Exception as exc:
+            logger.error("Failed to create pool (attempt %d/3): %s", attempt + 1, exc)
+            if attempt < 2:
+                await asyncio.sleep(2 ** attempt)
+            else:
+                raise
 
 
 async def get_pool() -> asyncpg.Pool:

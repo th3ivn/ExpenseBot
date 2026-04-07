@@ -5,6 +5,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
 from bot.keyboards.main import get_main_menu_keyboard
+from bot.utils import safe_edit_text
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -22,7 +23,8 @@ async def cmd_start(message: Message) -> None:
 
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery) -> None:
-    await callback.message.edit_text(
+    await safe_edit_text(
+        callback.message,
         "🏠 Головне меню:",
         reply_markup=get_main_menu_keyboard(),
     )
