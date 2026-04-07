@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 
 from aiohttp import web
@@ -7,6 +8,64 @@ from aiogram import Bot
 from bot.database.transactions import save_transaction
 
 logger = logging.getLogger(__name__)
+
+UA_MONTHS = {
+    "січ.": 1, "січня": 1,
+    "лют.": 2, "лютого": 2,
+    "бер.": 3, "березня": 3,
+    "квіт.": 4, "квітня": 4,
+    "трав.": 5, "травня": 5,
+    "черв.": 6, "червня": 6,
+    "лип.": 7, "липня": 7,
+    "серп.": 8, "серпня": 8,
+    "вер.": 9, "вересня": 9,
+    "жовт.": 10, "жовтня": 10,
+    "лист.": 11, "листопада": 11,
+    "груд.": 12, "грудня": 12,
+}
+
+_UA_MONTH_PATTERN = "|".join(re.escape(k) for k in UA_MONTHS)
+_UA_DATE_RE = re.compile(
+    rf"(\d{{1,2}})\s+({_UA_MONTH_PATTERN})\s+(\d{{4}})\s*р?\.,?\s*(\d{{1,2}}):(\d{{2}})"
+)
+
+_EN_FORMATS = [
+    "%b %d, %Y, %I:%M %p",
+    "%B %d, %Y, %I:%M %p",
+    "%b %d, %Y at %I:%M %p",
+    "%B %d, %Y at %I:%M %p",
+]
+
+
+def parse_transaction_date(date_str: str) -> datetime:
+    # Normalise unicode spaces
+    date_str = date_str.replace("\u202f", " ").replace("\u00a0", " ")
+
+    # 1. Try ISO format first
+    try:
+        return datetime.fromisoformat(date_str)
+    except ValueError:
+        pass
+
+    # 2. Try Ukrainian format
+    m = _UA_DATE_RE.search(date_str)
+    if m:
+        day, month_str, year, hour, minute = m.groups()
+        month_num = UA_MONTHS.get(month_str)
+        if month_num is not None:
+            try:
+                return datetime(int(year), month_num, int(day), int(hour), int(minute))
+            except ValueError:
+                pass
+
+    # 3. Try English formats
+    for fmt in _EN_FORMATS:
+        try:
+            return datetime.strptime(date_str.strip(), fmt)
+        except ValueError:
+            continue
+
+    raise ValueError(f"Unable to parse date string: {date_str!r}")
 
 
 def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> web.Application:
@@ -27,7 +86,7 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
             amount = float(data["amount"])
             merchant = str(data["merchant"])
             date_str = str(data["date"])
-            transaction_date = datetime.fromisoformat(date_str)
+            transaction_date = parse_transaction_date(date_str)
         except (KeyError, ValueError, TypeError) as exc:
             logger.warning("Invalid transaction data: %s", exc)
             return web.json_response({"error": f"Invalid data: {exc}"}, status=400)
