@@ -61,10 +61,11 @@ def format_stats_message(stats: dict, period_label: str) -> str:
 
     merchants = stats.get("top_merchants", [])
     if merchants:
-        text += "\n\n🏪 Топ продавців:\n"
-        for i, row in enumerate(merchants, 1):
-            text += f"{i}. {row['merchant']} — {float(row['total']):.2f} ₴\n"
-        text = text.rstrip()
+        merchant_lines = "\n".join(
+            f"{i}. {row['merchant']} — {float(row['total']):.2f} ₴"
+            for i, row in enumerate(merchants, 1)
+        )
+        text += f"\n\n🏪 Топ продавців:\n{merchant_lines}"
 
     return text
 

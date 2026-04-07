@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 _KYIV = ZoneInfo("Europe/Kyiv")
+_EXPORT_LIMIT = 1000
 
 _UA_MONTHS_NOMINATIVE = {
     1: "січень", 2: "лютий", 3: "березень", 4: "квітень",
@@ -197,7 +198,7 @@ async def cb_menu_export(callback: CallbackQuery) -> None:
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     rows = await get_transactions(
         callback.from_user.id,
-        limit=1000,
+        limit=_EXPORT_LIMIT,
         offset=0,
         date_from=date_from,
         date_to=now,
