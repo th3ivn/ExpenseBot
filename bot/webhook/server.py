@@ -86,13 +86,13 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
         # Rate limiting
         client_ip = request.remote or "unknown"
         now_ts = time.time()
-        _rate_limit[client_ip] = [
-            t for t in _rate_limit[client_ip] if now_ts - t < _RATE_LIMIT_WINDOW
-        ]
-        if len(_rate_limit[client_ip]) >= _RATE_LIMIT_MAX:
+        timestamps = [t for t in _rate_limit.get(client_ip, []) if now_ts - t < _RATE_LIMIT_WINDOW]
+        if len(timestamps) >= _RATE_LIMIT_MAX:
+            _rate_limit[client_ip] = timestamps
             logger.warning("Rate limit exceeded for %s", client_ip)
             return web.json_response({"error": "Rate limit exceeded"}, status=429)
-        _rate_limit[client_ip].append(now_ts)
+        timestamps.append(now_ts)
+        _rate_limit[client_ip] = timestamps
 
         data: dict = {}
         try:
@@ -111,7 +111,11 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
             amount = float(data["amount"])
             if amount <= 0:
                 return web.json_response({"error": "Amount must be positive"}, status=400)
-            merchant = str(data["merchant"])
+            merchant = str(data["merchant"]).strip()
+            if not merchant:
+                return web.json_response({"error": "Merchant name is required"}, status=400)
+            if len(merchant) > 255:
+                merchant = merchant[:255]
             date_str = str(data["date"])
             transaction_date = parse_transaction_date(date_str)
             # Ensure naive datetime for consistency with DB TIMESTAMP columns
@@ -121,12 +125,17 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
             logger.warning("Invalid transaction data: %s | raw data: %s", exc, data)
             return web.json_response({"error": f"Invalid data: {exc}"}, status=400)
 
-        tx_id = await save_transaction(
-            user_id=allowed_user_id,
-            amount=amount,
-            merchant=merchant,
-            transaction_date=transaction_date,
-        )
+        try:
+            tx_id = await save_transaction(
+                user_id=allowed_user_id,
+                amount=amount,
+                merchant=merchant,
+                transaction_date=transaction_date,
+            )
+        except Exception as exc:
+            logger.error("Failed to save transaction: %s", exc)
+            return web.json_response({"error": "Database error"}, status=500)
+
         logger.info("Saved transaction id=%s amount=%.2f merchant=%s", tx_id, amount, merchant)
 
         date_formatted = transaction_date.strftime("%d.%m.%Y %H:%M")
