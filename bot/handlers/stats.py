@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery, Message
 
 from bot.keyboards.main import get_stats_period_keyboard
 from bot.services.stats import format_stats_message, get_stats_for_period
+from bot.utils import safe_edit_text
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -27,7 +28,8 @@ async def cmd_stats(message: Message) -> None:
 
 @router.callback_query(F.data == "menu_stats")
 async def cb_menu_stats(callback: CallbackQuery) -> None:
-    await callback.message.edit_text(
+    await safe_edit_text(
+        callback.message,
         "📊 Оберіть період для статистики:",
         reply_markup=get_stats_period_keyboard(),
     )
@@ -42,5 +44,5 @@ async def cb_stats_period(callback: CallbackQuery) -> None:
     stats = await get_stats_for_period(callback.from_user.id, period)
     text = format_stats_message(stats, label)
 
-    await callback.message.edit_text(text, reply_markup=get_stats_period_keyboard())
+    await safe_edit_text(callback.message, text, reply_markup=get_stats_period_keyboard())
     await callback.answer()

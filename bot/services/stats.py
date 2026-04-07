@@ -8,7 +8,7 @@ _KYIV = ZoneInfo("Europe/Kyiv")
 
 
 def _get_week_range() -> tuple[datetime, datetime]:
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     start = now - timedelta(days=now.weekday())
     date_from = start.replace(hour=0, minute=0, second=0, microsecond=0)
     date_to = now
@@ -16,7 +16,7 @@ def _get_week_range() -> tuple[datetime, datetime]:
 
 
 def _get_month_range() -> tuple[datetime, datetime]:
-    now = datetime.now(_KYIV)
+    now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     date_to = now
     return date_from, date_to

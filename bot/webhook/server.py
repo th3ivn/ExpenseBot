@@ -1,5 +1,8 @@
+import asyncio
 import logging
 import re
+import time
+from collections import defaultdict
 from datetime import datetime
 
 from aiohttp import web
@@ -9,6 +12,10 @@ from bot.database.transactions import save_transaction
 from bot.keyboards.main import get_delete_transaction_keyboard
 
 logger = logging.getLogger(__name__)
+
+_rate_limit: dict[str, list[float]] = defaultdict(list)
+_RATE_LIMIT_MAX = 10  # max requests
+_RATE_LIMIT_WINDOW = 60  # seconds
 
 UA_MONTHS = {
     "січ.": 1, "січня": 1,
@@ -76,10 +83,24 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
         return web.json_response({"status": "ok"})
 
     async def handle_transaction(request: web.Request) -> web.Response:
+        # Rate limiting
+        client_ip = request.remote or "unknown"
+        now_ts = time.time()
+        _rate_limit[client_ip] = [
+            t for t in _rate_limit[client_ip] if now_ts - t < _RATE_LIMIT_WINDOW
+        ]
+        if len(_rate_limit[client_ip]) >= _RATE_LIMIT_MAX:
+            logger.warning("Rate limit exceeded for %s", client_ip)
+            return web.json_response({"error": "Rate limit exceeded"}, status=429)
+        _rate_limit[client_ip].append(now_ts)
+
+        data: dict = {}
         try:
             data = await request.json()
         except Exception:
             return web.json_response({"error": "Invalid JSON"}, status=400)
+
+        logger.debug("Received transaction data: %s", data)
 
         token = data.get("token", "")
         if token != webhook_secret:
@@ -88,11 +109,16 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
 
         try:
             amount = float(data["amount"])
+            if amount <= 0:
+                return web.json_response({"error": "Amount must be positive"}, status=400)
             merchant = str(data["merchant"])
             date_str = str(data["date"])
             transaction_date = parse_transaction_date(date_str)
+            # Ensure naive datetime for consistency with DB TIMESTAMP columns
+            if transaction_date.tzinfo is not None:
+                transaction_date = transaction_date.replace(tzinfo=None)
         except (KeyError, ValueError, TypeError) as exc:
-            logger.warning("Invalid transaction data: %s", exc)
+            logger.warning("Invalid transaction data: %s | raw data: %s", exc, data)
             return web.json_response({"error": f"Invalid data: {exc}"}, status=400)
 
         tx_id = await save_transaction(
@@ -110,14 +136,20 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
             f"🏪 Продавець: {merchant}\n"
             f"📅 Дата: {date_formatted}"
         )
-        try:
-            await bot.send_message(
-                chat_id=allowed_user_id,
-                text=notification,
-                reply_markup=get_delete_transaction_keyboard(tx_id),
-            )
-        except Exception as exc:
-            logger.error("Failed to send notification: %s", exc)
+        for attempt in range(3):
+            try:
+                await bot.send_message(
+                    chat_id=allowed_user_id,
+                    text=notification,
+                    reply_markup=get_delete_transaction_keyboard(tx_id),
+                )
+                break
+            except Exception as exc:
+                logger.error(
+                    "Failed to send notification (attempt %d/3): %s", attempt + 1, exc
+                )
+                if attempt < 2:
+                    await asyncio.sleep(1)
 
         return web.json_response({"ok": True, "id": tx_id})
 
