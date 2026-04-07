@@ -6,6 +6,7 @@ from aiohttp import web
 from aiogram import Bot
 
 from bot.database.transactions import save_transaction
+from bot.keyboards.main import get_delete_transaction_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,9 @@ def parse_transaction_date(date_str: str) -> datetime:
 def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> web.Application:
     app = web.Application()
 
+    async def handle_health(request: web.Request) -> web.Response:
+        return web.json_response({"status": "ok"})
+
     async def handle_transaction(request: web.Request) -> web.Response:
         try:
             data = await request.json()
@@ -102,16 +106,21 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
         date_formatted = transaction_date.strftime("%d.%m.%Y %H:%M")
         notification = (
             "✅ Нова транзакція!\n\n"
-            f"💰 Сума: {amount:.2f}\n"
+            f"💰 Сума: {amount:.2f} ₴\n"
             f"🏪 Продавець: {merchant}\n"
             f"📅 Дата: {date_formatted}"
         )
         try:
-            await bot.send_message(chat_id=allowed_user_id, text=notification)
+            await bot.send_message(
+                chat_id=allowed_user_id,
+                text=notification,
+                reply_markup=get_delete_transaction_keyboard(tx_id),
+            )
         except Exception as exc:
             logger.error("Failed to send notification: %s", exc)
 
         return web.json_response({"ok": True, "id": tx_id})
 
+    app.router.add_get("/", handle_health)
     app.router.add_post("/api/transaction", handle_transaction)
     return app

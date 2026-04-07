@@ -17,13 +17,21 @@ PERIOD_LABELS = {
 }
 
 
-@router.message(F.text == "📊 Статистика")
 @router.message(Command("stats"))
-async def btn_stats(message: Message) -> None:
+async def cmd_stats(message: Message) -> None:
     await message.answer(
         "📊 Оберіть період для статистики:",
         reply_markup=get_stats_period_keyboard(),
     )
+
+
+@router.callback_query(F.data == "menu_stats")
+async def cb_menu_stats(callback: CallbackQuery) -> None:
+    await callback.message.edit_text(
+        "📊 Оберіть період для статистики:",
+        reply_markup=get_stats_period_keyboard(),
+    )
+    await callback.answer()
 
 
 @router.callback_query(F.data.in_({"stats_week", "stats_month", "stats_all"}))
@@ -34,5 +42,5 @@ async def cb_stats_period(callback: CallbackQuery) -> None:
     stats = await get_stats_for_period(callback.from_user.id, period)
     text = format_stats_message(stats, label)
 
-    await callback.message.answer(text, reply_markup=get_stats_period_keyboard())
+    await callback.message.edit_text(text, reply_markup=get_stats_period_keyboard())
     await callback.answer()

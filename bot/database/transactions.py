@@ -30,6 +30,17 @@ async def save_transaction(
     return row["id"]
 
 
+async def delete_transaction(transaction_id: int, user_id: int) -> bool:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM transactions WHERE id = $1 AND user_id = $2",
+            transaction_id,
+            user_id,
+        )
+    return result == "DELETE 1"
+
+
 async def get_transactions(
     user_id: int,
     limit: int = TRANSACTIONS_PER_PAGE,
@@ -140,3 +151,44 @@ async def get_stats(
                 user_id,
             )
     return dict(row)
+
+
+async def get_top_merchants(
+    user_id: int,
+    limit: int = 5,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> list[asyncpg.Record]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if date_from and date_to:
+            rows = await conn.fetch(
+                """
+                SELECT merchant, SUM(amount) AS total
+                FROM transactions
+                WHERE user_id = $1
+                  AND transaction_date >= $2
+                  AND transaction_date <= $3
+                GROUP BY merchant
+                ORDER BY total DESC
+                LIMIT $4
+                """,
+                user_id,
+                date_from,
+                date_to,
+                limit,
+            )
+        else:
+            rows = await conn.fetch(
+                """
+                SELECT merchant, SUM(amount) AS total
+                FROM transactions
+                WHERE user_id = $1
+                GROUP BY merchant
+                ORDER BY total DESC
+                LIMIT $2
+                """,
+                user_id,
+                limit,
+            )
+    return rows
