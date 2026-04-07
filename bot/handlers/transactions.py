@@ -335,7 +335,7 @@ async def cb_delete_transaction(callback: CallbackQuery) -> None:
     try:
         tx_id = int(callback.data.split("_")[-1])
     except (ValueError, IndexError):
-        await safe_edit_text(callback.message, "⚠️ Невірний ID транзакції")
+        await safe_edit_text(callback.message, "⚠️ Невірний ID транзакції", reply_markup=get_back_to_menu_keyboard())
         return
     try:
         deleted = await delete_transaction(tx_id, callback.from_user.id)

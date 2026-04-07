@@ -88,7 +88,6 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
         now_ts = time.time()
         timestamps = [t for t in _rate_limit.get(client_ip, []) if now_ts - t < _RATE_LIMIT_WINDOW]
         if len(timestamps) >= _RATE_LIMIT_MAX:
-            _rate_limit[client_ip] = timestamps
             logger.warning("Rate limit exceeded for %s", client_ip)
             return web.json_response({"error": "Rate limit exceeded"}, status=429)
         timestamps.append(now_ts)
