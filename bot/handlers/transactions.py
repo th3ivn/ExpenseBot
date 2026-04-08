@@ -17,7 +17,8 @@ from bot.keyboards.main import (
     get_back_to_menu_keyboard,
     get_transactions_pagination_keyboard,
 )
-from bot.utils import safe_edit_text
+from bot.state import set_last_menu_message
+from bot.utils import safe_edit_text, send_or_replace
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -107,21 +108,39 @@ async def _show_transactions(
 
         if edit:
             await safe_edit_text(message, text, reply_markup=keyboard)
+            set_last_menu_message(user_id, message.message_id)
         else:
-            await message.answer(text, reply_markup=keyboard)
+            await send_or_replace(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                user_id=user_id,
+                text=text,
+                reply_markup=keyboard,
+            )
     except Exception as exc:
         logger.error("Failed to load transactions: %s", exc)
         error_text = "⚠️ Помилка завантаження. Спробуйте ще раз."
         if edit:
             await safe_edit_text(message, error_text, reply_markup=get_back_to_menu_keyboard())
+            set_last_menu_message(user_id, message.message_id)
         else:
-            await message.answer(error_text, reply_markup=get_back_to_menu_keyboard())
+            await send_or_replace(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                user_id=user_id,
+                text=error_text,
+                reply_markup=get_back_to_menu_keyboard(),
+            )
 
 
 # ── Slash commands ────────────────────────────────────────────────────────────
 
 @router.message(Command("transactions"))
 async def cmd_transactions(message: Message) -> None:
+    try:
+        await message.delete()
+    except Exception:
+        pass
     await _show_transactions(
         message,
         user_id=message.from_user.id,
@@ -133,6 +152,10 @@ async def cmd_transactions(message: Message) -> None:
 
 @router.message(Command("week"))
 async def cmd_week(message: Message) -> None:
+    try:
+        await message.delete()
+    except Exception:
+        pass
     now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -150,6 +173,10 @@ async def cmd_week(message: Message) -> None:
 
 @router.message(Command("month"))
 async def cmd_month(message: Message) -> None:
+    try:
+        await message.delete()
+    except Exception:
+        pass
     now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     await _show_transactions(
@@ -244,6 +271,7 @@ async def cb_menu_export(callback: CallbackQuery) -> None:
         logger.error("Failed to load export: %s", exc)
         text = "⚠️ Помилка завантаження. Спробуйте ще раз."
     await safe_edit_text(callback.message, text, reply_markup=get_back_to_menu_keyboard())
+    set_last_menu_message(callback.from_user.id, callback.message.message_id)
 
 
 # ── Pagination callbacks ──────────────────────────────────────────────────────
@@ -351,5 +379,5 @@ async def cb_delete_transaction(callback: CallbackQuery) -> None:
         text = "❌ Транзакцію видалено"
     else:
         text = "⚠️ Транзакцію не знайдено (можливо, вже видалена)"
-    await safe_edit_text(callback.message, text)
+    await safe_edit_text(callback.message, text, reply_markup=get_back_to_menu_keyboard())
 

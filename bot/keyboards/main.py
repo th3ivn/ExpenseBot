@@ -25,7 +25,13 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
 def get_delete_transaction_keyboard(tx_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🗑️ Видалити", callback_data=f"delete_tx_{tx_id}")]
+            [
+                InlineKeyboardButton(text="🗑️ Видалити", callback_data=f"delete_tx_{tx_id}"),
+                InlineKeyboardButton(text="🧾 Транзакції", callback_data="menu_transactions"),
+            ],
+            [
+                InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu"),
+            ],
         ]
     )
 
