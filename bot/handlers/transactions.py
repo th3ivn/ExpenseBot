@@ -380,4 +380,5 @@ async def cb_delete_transaction(callback: CallbackQuery) -> None:
     else:
         text = "⚠️ Транзакцію не знайдено (можливо, вже видалена)"
     await safe_edit_text(callback.message, text, reply_markup=get_back_to_menu_keyboard())
+    set_last_menu_message(callback.from_user.id, callback.message.message_id)
 
