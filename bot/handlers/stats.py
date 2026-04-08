@@ -28,21 +28,31 @@ async def cmd_stats(message: Message) -> None:
 
 @router.callback_query(F.data == "menu_stats")
 async def cb_menu_stats(callback: CallbackQuery) -> None:
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     await safe_edit_text(
         callback.message,
         "📊 Оберіть період для статистики:",
         reply_markup=get_stats_period_keyboard(),
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.in_({"stats_week", "stats_month", "stats_all"}))
 async def cb_stats_period(callback: CallbackQuery) -> None:
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     period = callback.data.replace("stats_", "")
     label = PERIOD_LABELS.get(period, "")
 
-    stats = await get_stats_for_period(callback.from_user.id, period)
-    text = format_stats_message(stats, label)
+    try:
+        stats = await get_stats_for_period(callback.from_user.id, period)
+        text = format_stats_message(stats, label)
+    except Exception as exc:
+        logger.error("Failed to load stats: %s", exc)
+        text = "⚠️ Помилка завантаження статистики. Спробуйте ще раз."
 
     await safe_edit_text(callback.message, text, reply_markup=get_stats_period_keyboard())
-    await callback.answer()

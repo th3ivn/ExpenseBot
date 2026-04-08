@@ -23,12 +23,15 @@ async def cmd_start(message: Message) -> None:
 
 @router.callback_query(F.data == "main_menu")
 async def cb_main_menu(callback: CallbackQuery) -> None:
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     await safe_edit_text(
         callback.message,
         "🏠 Головне меню:",
         reply_markup=get_main_menu_keyboard(),
     )
-    await callback.answer()
 
 
 @unknown_router.message()

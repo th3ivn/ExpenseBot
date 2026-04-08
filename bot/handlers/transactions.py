@@ -89,25 +89,33 @@ async def _show_transactions(
     date_to: datetime | None = None,
     edit: bool = False,
 ) -> None:
-    total = await count_transactions(user_id, date_from=date_from, date_to=date_to)
-    total_pages = math.ceil(total / TRANSACTIONS_PER_PAGE) if total > 0 else 1
-    offset = page * TRANSACTIONS_PER_PAGE
+    try:
+        total = await count_transactions(user_id, date_from=date_from, date_to=date_to)
+        total_pages = math.ceil(total / TRANSACTIONS_PER_PAGE) if total > 0 else 1
+        offset = page * TRANSACTIONS_PER_PAGE
 
-    rows = await get_transactions(
-        user_id,
-        limit=TRANSACTIONS_PER_PAGE,
-        offset=offset,
-        date_from=date_from,
-        date_to=date_to,
-    )
+        rows = await get_transactions(
+            user_id,
+            limit=TRANSACTIONS_PER_PAGE,
+            offset=offset,
+            date_from=date_from,
+            date_to=date_to,
+        )
 
-    text = _format_transactions(rows, page, total_pages, title)
-    keyboard = get_transactions_pagination_keyboard(page, total_pages, prefix=prefix)
+        text = _format_transactions(rows, page, total_pages, title)
+        keyboard = get_transactions_pagination_keyboard(page, total_pages, prefix=prefix)
 
-    if edit:
-        await safe_edit_text(message, text, reply_markup=keyboard)
-    else:
-        await message.answer(text, reply_markup=keyboard)
+        if edit:
+            await safe_edit_text(message, text, reply_markup=keyboard)
+        else:
+            await message.answer(text, reply_markup=keyboard)
+    except Exception as exc:
+        logger.error("Failed to load transactions: %s", exc)
+        error_text = "⚠️ Помилка завантаження. Спробуйте ще раз."
+        if edit:
+            await safe_edit_text(message, error_text, reply_markup=get_back_to_menu_keyboard())
+        else:
+            await message.answer(error_text, reply_markup=get_back_to_menu_keyboard())
 
 
 # ── Slash commands ────────────────────────────────────────────────────────────
@@ -159,6 +167,10 @@ async def cmd_month(message: Message) -> None:
 
 @router.callback_query(F.data == "menu_transactions")
 async def cb_menu_transactions(callback: CallbackQuery) -> None:
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     await _show_transactions(
         callback.message,
         user_id=callback.from_user.id,
@@ -167,11 +179,14 @@ async def cb_menu_transactions(callback: CallbackQuery) -> None:
         prefix="txn",
         edit=True,
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "menu_week")
 async def cb_menu_week(callback: CallbackQuery) -> None:
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -186,11 +201,14 @@ async def cb_menu_week(callback: CallbackQuery) -> None:
         date_to=now,
         edit=True,
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "menu_month")
 async def cb_menu_month(callback: CallbackQuery) -> None:
+    try:
+        await callback.answer()
+    except Exception:
+        pass
     now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     await _show_transactions(
@@ -203,30 +221,45 @@ async def cb_menu_month(callback: CallbackQuery) -> None:
         date_to=now,
         edit=True,
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "menu_export")
 async def cb_menu_export(callback: CallbackQuery) -> None:
-    now = datetime.now(_KYIV).replace(tzinfo=None)
-    date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    rows = await get_transactions(
-        callback.from_user.id,
-        limit=_EXPORT_LIMIT,
-        offset=0,
-        date_from=date_from,
-        date_to=now,
-    )
-    text = _format_export(rows, now)
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        now = datetime.now(_KYIV).replace(tzinfo=None)
+        date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        rows = await get_transactions(
+            callback.from_user.id,
+            limit=_EXPORT_LIMIT,
+            offset=0,
+            date_from=date_from,
+            date_to=now,
+        )
+        text = _format_export(rows, now)
+    except Exception as exc:
+        logger.error("Failed to load export: %s", exc)
+        text = "⚠️ Помилка завантаження. Спробуйте ще раз."
     await safe_edit_text(callback.message, text, reply_markup=get_back_to_menu_keyboard())
-    await callback.answer()
 
 
 # ── Pagination callbacks ──────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("txn_page_"))
 async def cb_txn_page(callback: CallbackQuery) -> None:
-    page = int(callback.data.split("_")[-1])
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        page = int(callback.data.split("_")[-1])
+        if page < 0:
+            page = 0
+    except (ValueError, IndexError):
+        page = 0
     await _show_transactions(
         callback.message,
         user_id=callback.from_user.id,
@@ -235,12 +268,20 @@ async def cb_txn_page(callback: CallbackQuery) -> None:
         prefix="txn",
         edit=True,
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("week_page_"))
 async def cb_week_page(callback: CallbackQuery) -> None:
-    page = int(callback.data.split("_")[-1])
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        page = int(callback.data.split("_")[-1])
+        if page < 0:
+            page = 0
+    except (ValueError, IndexError):
+        page = 0
     now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = (now - timedelta(days=now.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -255,12 +296,20 @@ async def cb_week_page(callback: CallbackQuery) -> None:
         date_to=now,
         edit=True,
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("month_page_"))
 async def cb_month_page(callback: CallbackQuery) -> None:
-    page = int(callback.data.split("_")[-1])
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        page = int(callback.data.split("_")[-1])
+        if page < 0:
+            page = 0
+    except (ValueError, IndexError):
+        page = 0
     now = datetime.now(_KYIV).replace(tzinfo=None)
     date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     await _show_transactions(
@@ -273,19 +322,34 @@ async def cb_month_page(callback: CallbackQuery) -> None:
         date_to=now,
         edit=True,
     )
-    await callback.answer()
 
 
 # ── Delete callback ───────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("delete_tx_"))
 async def cb_delete_transaction(callback: CallbackQuery) -> None:
-    tx_id = int(callback.data.split("_")[-1])
-    deleted = await delete_transaction(tx_id, callback.from_user.id)
+    try:
+        await callback.answer()
+    except Exception:
+        pass
+    try:
+        tx_id = int(callback.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await safe_edit_text(callback.message, "⚠️ Невірний ID транзакції", reply_markup=get_back_to_menu_keyboard())
+        return
+    try:
+        deleted = await delete_transaction(tx_id, callback.from_user.id)
+    except Exception as exc:
+        logger.error("Failed to delete transaction: %s", exc)
+        await safe_edit_text(
+            callback.message,
+            "⚠️ Помилка видалення. Спробуйте ще раз.",
+            reply_markup=get_back_to_menu_keyboard(),
+        )
+        return
     if deleted:
         text = "❌ Транзакцію видалено"
     else:
         text = "⚠️ Транзакцію не знайдено (можливо, вже видалена)"
     await safe_edit_text(callback.message, text)
-    await callback.answer()
 

@@ -4,7 +4,7 @@ import logging
 from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Filter
-from aiogram.types import Message, CallbackQuery, Update
+from aiogram.types import Message, CallbackQuery
 
 from bot.config import load_config
 from bot.database.pool import close_pool, create_pool
