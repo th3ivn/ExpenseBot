@@ -10,6 +10,7 @@ class Config:
     allowed_user_id: int
     webhook_host: str
     webhook_port: int
+    webapp_url: str
 
 
 def load_config() -> Config:
@@ -19,6 +20,7 @@ def load_config() -> Config:
     allowed_user_id = int(os.environ["ALLOWED_USER_ID"])
     webhook_host = os.environ.get("WEBHOOK_HOST", "0.0.0.0")
     webhook_port = int(os.environ.get("WEBHOOK_PORT", "8080"))
+    webapp_url = os.environ.get("WEBAPP_URL", "")
 
     return Config(
         bot_token=bot_token,
@@ -27,4 +29,5 @@ def load_config() -> Config:
         allowed_user_id=allowed_user_id,
         webhook_host=webhook_host,
         webhook_port=webhook_port,
+        webapp_url=webapp_url,
     )

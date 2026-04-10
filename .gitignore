@@ -28,3 +28,16 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Node
+node_modules/
+webapp/dist/
+webapp/.env
+webapp/.env.local
+
+# Python cache
+api/__pycache__/
+api/**/__pycache__/
+
+# Alembic
+*.pyc
