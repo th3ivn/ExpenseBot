@@ -2,6 +2,7 @@ import logging
 
 from aiogram import F, Router
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from bot.keyboards.main import get_main_menu_keyboard
@@ -44,7 +45,11 @@ async def cb_main_menu(callback: CallbackQuery) -> None:
 
 
 @unknown_router.message()
-async def unknown_message(message: Message) -> None:
+async def unknown_message(message: Message, state: FSMContext) -> None:
+    current_state = await state.get_state()
+    if current_state is not None:
+        return  # Don't intercept if user is in an FSM flow
+
     try:
         await message.delete()
     except Exception:

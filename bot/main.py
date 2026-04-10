@@ -8,7 +8,7 @@ from aiogram.types import Message, CallbackQuery
 
 from bot.config import load_config
 from bot.database.pool import close_pool, create_pool
-from bot.handlers import start, transactions, stats
+from bot.handlers import start, transactions, stats, add_expense
 from bot.webhook.server import create_webhook_app
 
 logging.basicConfig(
@@ -43,6 +43,7 @@ async def main() -> None:
     dp.callback_query.filter(allowed_filter)
 
     dp.include_router(start.router)
+    dp.include_router(add_expense.router)  # Before transactions so FSM handlers have priority
     dp.include_router(transactions.router)
     dp.include_router(stats.router)
     dp.include_router(start.unknown_router)  # Must be last — catches all unhandled messages
