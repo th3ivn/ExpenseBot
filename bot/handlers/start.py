@@ -5,7 +5,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from bot.keyboards.main import get_main_menu_keyboard
+from bot.keyboards.main import get_main_menu_keyboard, get_webapp_button
 from bot.state import set_last_menu_message
 from bot.utils import safe_edit_text, send_or_replace
 
@@ -15,7 +15,7 @@ unknown_router = Router()
 
 
 @router.message(Command("start"))
-async def cmd_start(message: Message) -> None:
+async def cmd_start(message: Message, webapp_url: str = "") -> None:
     try:
         await message.delete()
     except Exception:
@@ -28,6 +28,13 @@ async def cmd_start(message: Message) -> None:
         text="👋 Привіт! Я ExpenseBot — твій особистий трекер витрат.\n\nОбери дію:",
         reply_markup=get_main_menu_keyboard(),
     )
+
+    if webapp_url:
+        await message.bot.send_message(
+            chat_id=message.chat.id,
+            text="📱 Або відкрий повний інтерфейс:",
+            reply_markup=get_webapp_button(webapp_url),
+        )
 
 
 @router.callback_query(F.data == "main_menu")

@@ -62,7 +62,7 @@ async def main() -> None:
 
     try:
         logger.info("Starting bot polling...")
-        await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
+        await dp.start_polling(bot, allowed_updates=["message", "callback_query"], webapp_url=config.webapp_url)
     finally:
         logger.info("Shutting down...")
         await runner.cleanup()

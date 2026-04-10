@@ -1,6 +1,7 @@
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    WebAppInfo,
 )
 
 
@@ -21,6 +22,19 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text="📋 Експорт за місяць", callback_data="menu_export"),
             ],
+        ]
+    )
+
+
+def get_webapp_button(webapp_url: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🌐 Відкрити Mini App",
+                    web_app=WebAppInfo(url=webapp_url),
+                )
+            ]
         ]
     )
 
