@@ -15,18 +15,35 @@ export function useTransactions(params?: {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Extract primitives to avoid JSON.stringify in dep array
+  const skip = params?.skip;
+  const limit = params?.limit;
+  const type = params?.type;
+  const category_id = params?.category_id;
+  const account_id = params?.account_id;
+  const date_from = params?.date_from;
+  const date_to = params?.date_to;
+
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.transactions.list(params);
+      const data = await api.transactions.list({
+        skip,
+        limit,
+        type,
+        category_id,
+        account_id,
+        date_from,
+        date_to,
+      });
       setTransactions(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Помилка завантаження');
     } finally {
       setLoading(false);
     }
-  }, [JSON.stringify(params)]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [skip, limit, type, category_id, account_id, date_from, date_to]);
 
   useEffect(() => {
     fetch();

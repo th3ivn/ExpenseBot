@@ -9,11 +9,10 @@ import { api } from '../../api/client';
 import type { RecurringTransaction, Transaction } from '../../types';
 
 interface DashboardProps {
-  onAddTransaction: () => void;
   onSelectTransaction: (t: Transaction) => void;
 }
 
-export function Dashboard({ onAddTransaction: _onAddTransaction, onSelectTransaction }: DashboardProps) {
+export function Dashboard({ onSelectTransaction }: DashboardProps) {
   const { progress, loading: budgetLoading } = useBudget();
   const { trend, breakdown, savingsRate, loading: statsLoading } = useStats();
   const { transactions, loading: txLoading } = useTransactions({ limit: 10 });

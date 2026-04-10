@@ -14,7 +14,6 @@ export function DashboardPage() {
   return (
     <div className="px-4 pt-4 pb-4">
       <Dashboard
-        onAddTransaction={() => setAddOpen(true)}
         onSelectTransaction={setSelected}
       />
       <FloatingButton onClick={() => setAddOpen(true)} />
