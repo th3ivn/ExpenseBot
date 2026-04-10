@@ -67,33 +67,3 @@ def format_stats_message(stats: dict, period_label: str) -> str:
 
     return text
 
-
-def format_stats_message(stats: dict, period_label: str) -> str:
-    total_count = stats.get("total_count", 0)
-    total_amount = float(stats.get("total_amount", 0))
-    avg_amount = float(stats.get("avg_amount", 0))
-    max_amount = float(stats.get("max_amount", 0))
-    min_amount = float(stats.get("min_amount", 0))
-
-    if total_count == 0:
-        return f"📊 Статистика — {period_label}\n\nНемає транзакцій за цей період."
-
-    text = (
-        f"📊 Статистика — {period_label}\n\n"
-        f"🔢 Кількість: {total_count}\n"
-        f"💰 Загальна сума: {total_amount:.2f} ₴\n"
-        f"📈 Середня: {avg_amount:.2f} ₴\n"
-        f"⬆️ Макс: {max_amount:.2f} ₴\n"
-        f"⬇️ Мін: {min_amount:.2f} ₴"
-    )
-
-    merchants = stats.get("top_merchants", [])
-    if merchants:
-        merchant_lines = "\n".join(
-            f"{i}. {row['merchant']} — {float(row['total']):.2f} ₴"
-            for i, row in enumerate(merchants, 1)
-        )
-        text += f"\n\n🏪 Топ продавців:\n{merchant_lines}"
-
-    return text
-
