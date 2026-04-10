@@ -16,6 +16,9 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="📆 Цей місяць", callback_data="menu_month"),
             ],
             [
+                InlineKeyboardButton(text="➕ Додати витрату", callback_data="menu_add_expense"),
+            ],
+            [
                 InlineKeyboardButton(text="📋 Експорт за місяць", callback_data="menu_export"),
             ],
         ]
@@ -81,5 +84,37 @@ def get_stats_period_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="Весь час", callback_data="stats_all"),
             ],
             [InlineKeyboardButton(text="🏠 Головне меню", callback_data="main_menu")],
+        ]
+    )
+
+
+def get_date_choice_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📅 Зараз (авто)", callback_data="add_date_now")],
+            [InlineKeyboardButton(text="✏️ Ввести дату вручну", callback_data="add_date_custom")],
+            [InlineKeyboardButton(text="❌ Скасувати", callback_data="add_cancel")],
+        ]
+    )
+
+
+def get_confirmation_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Зберегти", callback_data="add_confirm"),
+                InlineKeyboardButton(text="❌ Скасувати", callback_data="add_cancel"),
+            ],
+        ]
+    )
+
+
+def get_after_save_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🧾 Транзакції", callback_data="menu_transactions"),
+                InlineKeyboardButton(text="🏠 Меню", callback_data="main_menu"),
+            ],
         ]
     )

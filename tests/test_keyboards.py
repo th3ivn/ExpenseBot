@@ -21,7 +21,8 @@ def test_main_menu_keyboard_structure():
     assert "menu_week" in callback_data_set
     assert "menu_month" in callback_data_set
     assert "menu_export" in callback_data_set
-    assert len(buttons) == 5
+    assert "menu_add_expense" in callback_data_set
+    assert len(buttons) == 6
 
 
 # ── get_delete_transaction_keyboard ──────────────────────────────────────────
