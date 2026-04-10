@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from bot.database.transactions import save_transaction
+from bot.api_client import APIClient
 from bot.keyboards.main import (
     get_after_save_keyboard,
     get_back_to_menu_keyboard,
@@ -190,7 +190,7 @@ async def msg_custom_date(message: Message, state: FSMContext) -> None:
 # ── Confirm / Cancel ──────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "add_confirm", AddExpenseStates.confirmation)
-async def cb_add_confirm(callback: CallbackQuery, state: FSMContext) -> None:
+async def cb_add_confirm(callback: CallbackQuery, state: FSMContext, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -202,8 +202,8 @@ async def cb_add_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     date: datetime = data["date"]
 
     try:
-        await save_transaction(
-            user_id=callback.from_user.id,
+        await api_client.create_transaction(
+            telegram_user_id=callback.from_user.id,
             amount=amount,
             merchant=merchant,
             transaction_date=date,

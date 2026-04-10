@@ -8,7 +8,7 @@ from datetime import datetime
 from aiohttp import web
 from aiogram import Bot
 
-from bot.database.transactions import save_transaction
+from bot.api_client import APIClient
 from bot.keyboards.main import get_delete_transaction_keyboard
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,12 @@ def parse_transaction_date(date_str: str) -> datetime:
     raise ValueError(f"Unable to parse date string: {date_str!r}")
 
 
-def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> web.Application:
+def create_webhook_app(
+    bot: Bot,
+    allowed_user_id: int,
+    webhook_secret: str,
+    api_client: APIClient,
+) -> web.Application:
     app = web.Application()
 
     async def handle_health(request: web.Request) -> web.Response:
@@ -125,15 +130,16 @@ def create_webhook_app(bot: Bot, allowed_user_id: int, webhook_secret: str) -> w
             return web.json_response({"error": f"Invalid data: {exc}"}, status=400)
 
         try:
-            tx_id = await save_transaction(
-                user_id=allowed_user_id,
+            result = await api_client.create_transaction(
+                telegram_user_id=allowed_user_id,
                 amount=amount,
                 merchant=merchant,
                 transaction_date=transaction_date,
             )
+            tx_id = result["id"]
         except Exception as exc:
-            logger.error("Failed to save transaction: %s", exc)
-            return web.json_response({"error": "Database error"}, status=500)
+            logger.error("Failed to save transaction via API: %s", exc)
+            return web.json_response({"error": "API error"}, status=500)
 
         logger.info("Saved transaction id=%s amount=%.2f merchant=%s", tx_id, amount, merchant)
 

@@ -55,6 +55,32 @@ async def list_transactions(
     return [TransactionRead.model_validate(t) for t in result.scalars().all()]
 
 
+async def count_transactions(
+    db: AsyncSession,
+    user_id: int,
+    period_start: Optional[datetime] = None,
+    period_end: Optional[datetime] = None,
+    category_id: Optional[int] = None,
+    account_id: Optional[int] = None,
+    type_filter: Optional[TransactionType] = None,
+) -> int:
+    from sqlalchemy import func as sa_func
+
+    query = select(sa_func.count()).select_from(Transaction).where(Transaction.user_id == user_id)
+    if period_start:
+        query = query.where(Transaction.date >= period_start)
+    if period_end:
+        query = query.where(Transaction.date <= period_end)
+    if category_id is not None:
+        query = query.where(Transaction.category_id == category_id)
+    if account_id is not None:
+        query = query.where(Transaction.account_id == account_id)
+    if type_filter is not None:
+        query = query.where(Transaction.type == type_filter)
+    result = await db.execute(query)
+    return result.scalar_one()
+
+
 async def get_recent(db: AsyncSession, user_id: int, n: int = 20) -> list[TransactionRead]:
     result = await db.execute(
         select(Transaction)

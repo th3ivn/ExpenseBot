@@ -6,6 +6,10 @@ COPY webapp/package.json webapp/package-lock.json ./
 RUN npm ci
 
 COPY webapp/ ./
+
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN npm run build
 
 FROM nginx:alpine
