@@ -3,8 +3,7 @@ from sqlalchemy import select
 
 from api.dependencies import CurrentUser, DbSession
 from api.models.merchant_rule import MerchantRule
-from api.schemas.category import CategoryRead
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 router = APIRouter(prefix="/merchant-rules", tags=["merchant-rules"])
@@ -16,14 +15,13 @@ class MerchantRuleCreate(BaseModel):
 
 
 class MerchantRuleRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     merchant_pattern: str
     category_id: int
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 @router.get("", response_model=list[MerchantRuleRead])
