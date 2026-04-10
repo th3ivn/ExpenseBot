@@ -12,8 +12,29 @@ from api.models.user import User
 
 async def get_current_user(
     authorization: Annotated[str | None, Header()] = None,
+    x_bot_token: Annotated[str | None, Header()] = None,
+    x_telegram_user_id: Annotated[str | None, Header()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # Service-to-service auth (bot → api)
+    if x_bot_token and settings.BOT_TOKEN and x_bot_token == settings.BOT_TOKEN and x_telegram_user_id:
+        try:
+            telegram_id = int(x_telegram_user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Невірний X-Telegram-User-Id",
+            )
+        result = await db.execute(select(User).where(User.telegram_id == telegram_id))
+        user = result.scalar_one_or_none()
+        if user is None:
+            user = User(telegram_id=telegram_id, first_name="Bot User")
+            db.add(user)
+            await db.flush()
+            await db.refresh(user)
+        return user
+
+    # Telegram WebApp initData auth (webapp → api)
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

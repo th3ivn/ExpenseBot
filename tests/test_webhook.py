@@ -6,6 +6,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
+from bot.api_client import APIClient
 from bot.webhook.server import _rate_limit, create_webhook_app
 
 SECRET = "test-secret"
@@ -19,14 +20,20 @@ def clear_rate_limit():
     _rate_limit.clear()
 
 
+def _make_api_client() -> AsyncMock:
+    client = AsyncMock(spec=APIClient)
+    client.create_transaction = AsyncMock(return_value={"id": 1})
+    return client
+
+
 def _make_app() -> web.Application:
     bot = AsyncMock()
     bot.send_message = AsyncMock()
-    return create_webhook_app(bot=bot, allowed_user_id=USER_ID, webhook_secret=SECRET)
+    return create_webhook_app(bot=bot, allowed_user_id=USER_ID, webhook_secret=SECRET, api_client=_make_api_client())
 
 
 def _make_app_with_bot(bot) -> web.Application:
-    return create_webhook_app(bot=bot, allowed_user_id=USER_ID, webhook_secret=SECRET)
+    return create_webhook_app(bot=bot, allowed_user_id=USER_ID, webhook_secret=SECRET, api_client=_make_api_client())
 
 
 async def _post(app: web.Application, data: dict, client_ip: str = "1.2.3.4"):
@@ -188,32 +195,33 @@ async def test_empty_merchant():
 async def test_successful_transaction():
     bot = AsyncMock()
     bot.send_message = AsyncMock()
+    mock_api_client = AsyncMock(spec=APIClient)
+    mock_api_client.create_transaction = AsyncMock(return_value={"id": 1})
 
-    with patch("bot.webhook.server.save_transaction", new=AsyncMock(return_value=1)) as mock_save:
-        app = _make_app_with_bot(bot)
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "127.0.0.1", 0)
-        await site.start()
-        port = site._server.sockets[0].getsockname()[1]
+    app = create_webhook_app(bot=bot, allowed_user_id=USER_ID, webhook_secret=SECRET, api_client=mock_api_client)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
 
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                f"http://127.0.0.1:{port}/api/transaction",
-                json={
-                    "token": SECRET,
-                    "amount": 150.0,
-                    "merchant": "Silpo",
-                    "date": "2024-03-15T14:30:00",
-                },
-            ) as resp:
-                assert resp.status == 200
-                body = await resp.json()
-                assert body["ok"] is True
-                assert body["id"] == 1
+    import aiohttp
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            f"http://127.0.0.1:{port}/api/transaction",
+            json={
+                "token": SECRET,
+                "amount": 150.0,
+                "merchant": "Silpo",
+                "date": "2024-03-15T14:30:00",
+            },
+        ) as resp:
+            assert resp.status == 200
+            body = await resp.json()
+            assert body["ok"] is True
+            assert body["id"] == 1
 
-        mock_save.assert_called_once()
-        bot.send_message.assert_called_once()
+    mock_api_client.create_transaction.assert_called_once()
+    bot.send_message.assert_called_once()
 
-        await runner.cleanup()
+    await runner.cleanup()

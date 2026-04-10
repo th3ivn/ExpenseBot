@@ -7,12 +7,7 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
-from bot.database.transactions import (
-    TRANSACTIONS_PER_PAGE,
-    count_transactions,
-    delete_transaction,
-    get_transactions,
-)
+from bot.api_client import APIClient, TRANSACTIONS_PER_PAGE
 from bot.keyboards.main import (
     get_back_to_menu_keyboard,
     get_transactions_pagination_keyboard,
@@ -40,9 +35,12 @@ def _format_transactions(rows: list, page: int, total_pages: int, title: str) ->
 
     lines = [f"{title} (сторінка {page + 1}/{max(total_pages, 1)})\n"]
     for row in rows:
-        date_str = row["transaction_date"].strftime("%d.%m.%Y %H:%M")
+        date_val = row["date"]
+        if isinstance(date_val, str):
+            date_val = datetime.fromisoformat(date_val)
+        date_str = date_val.strftime("%d.%m.%Y %H:%M")
         lines.append(
-            f"💰 {float(row['amount']):.2f} ₴ — {row['merchant']}\n"
+            f"💰 {float(row['amount']):.2f} ₴ — {row.get('merchant') or row.get('description') or '—'}\n"
             f"   📅 {date_str}"
         )
     return "\n\n".join(lines)
@@ -58,10 +56,14 @@ def _format_export(rows: list, now: datetime) -> str:
     lines = [header, ""]
     total = 0.0
     for i, row in enumerate(rows, 1):
-        date_str = row["transaction_date"].strftime("%d.%m")
+        date_val = row["date"]
+        if isinstance(date_val, str):
+            date_val = datetime.fromisoformat(date_val)
+        date_str = date_val.strftime("%d.%m")
         amount = float(row["amount"])
         total += amount
-        lines.append(f"{i}. {date_str} — {row['merchant']} — {amount:.2f} ₴")
+        merchant = row.get("merchant") or row.get("description") or "—"
+        lines.append(f"{i}. {date_str} — {merchant} — {amount:.2f} ₴")
 
     footer = f"\nЗагальна сума: {total:.2f} ₴"
 
@@ -86,16 +88,17 @@ async def _show_transactions(
     page: int,
     title: str,
     prefix: str,
+    api_client: APIClient,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     edit: bool = False,
 ) -> None:
     try:
-        total = await count_transactions(user_id, date_from=date_from, date_to=date_to)
+        total = await api_client.count_transactions(user_id, date_from=date_from, date_to=date_to)
         total_pages = math.ceil(total / TRANSACTIONS_PER_PAGE) if total > 0 else 1
         offset = page * TRANSACTIONS_PER_PAGE
 
-        rows = await get_transactions(
+        rows = await api_client.get_transactions(
             user_id,
             limit=TRANSACTIONS_PER_PAGE,
             offset=offset,
@@ -136,7 +139,7 @@ async def _show_transactions(
 # ── Slash commands ────────────────────────────────────────────────────────────
 
 @router.message(Command("transactions"))
-async def cmd_transactions(message: Message) -> None:
+async def cmd_transactions(message: Message, api_client: APIClient) -> None:
     try:
         await message.delete()
     except Exception:
@@ -147,11 +150,12 @@ async def cmd_transactions(message: Message) -> None:
         page=0,
         title="🧾 Останні транзакції",
         prefix="txn",
+        api_client=api_client,
     )
 
 
 @router.message(Command("week"))
-async def cmd_week(message: Message) -> None:
+async def cmd_week(message: Message, api_client: APIClient) -> None:
     try:
         await message.delete()
     except Exception:
@@ -166,13 +170,14 @@ async def cmd_week(message: Message) -> None:
         page=0,
         title="📅 Транзакції за цей тиждень",
         prefix="week",
+        api_client=api_client,
         date_from=date_from,
         date_to=now,
     )
 
 
 @router.message(Command("month"))
-async def cmd_month(message: Message) -> None:
+async def cmd_month(message: Message, api_client: APIClient) -> None:
     try:
         await message.delete()
     except Exception:
@@ -185,6 +190,7 @@ async def cmd_month(message: Message) -> None:
         page=0,
         title="📆 Транзакції за цей місяць",
         prefix="month",
+        api_client=api_client,
         date_from=date_from,
         date_to=now,
     )
@@ -193,7 +199,7 @@ async def cmd_month(message: Message) -> None:
 # ── Menu callbacks ────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "menu_transactions")
-async def cb_menu_transactions(callback: CallbackQuery) -> None:
+async def cb_menu_transactions(callback: CallbackQuery, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -204,12 +210,13 @@ async def cb_menu_transactions(callback: CallbackQuery) -> None:
         page=0,
         title="🧾 Останні транзакції",
         prefix="txn",
+        api_client=api_client,
         edit=True,
     )
 
 
 @router.callback_query(F.data == "menu_week")
-async def cb_menu_week(callback: CallbackQuery) -> None:
+async def cb_menu_week(callback: CallbackQuery, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -224,6 +231,7 @@ async def cb_menu_week(callback: CallbackQuery) -> None:
         page=0,
         title="📅 Транзакції за цей тиждень",
         prefix="week",
+        api_client=api_client,
         date_from=date_from,
         date_to=now,
         edit=True,
@@ -231,7 +239,7 @@ async def cb_menu_week(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "menu_month")
-async def cb_menu_month(callback: CallbackQuery) -> None:
+async def cb_menu_month(callback: CallbackQuery, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -244,6 +252,7 @@ async def cb_menu_month(callback: CallbackQuery) -> None:
         page=0,
         title="📆 Транзакції за цей місяць",
         prefix="month",
+        api_client=api_client,
         date_from=date_from,
         date_to=now,
         edit=True,
@@ -251,7 +260,7 @@ async def cb_menu_month(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "menu_export")
-async def cb_menu_export(callback: CallbackQuery) -> None:
+async def cb_menu_export(callback: CallbackQuery, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -259,7 +268,7 @@ async def cb_menu_export(callback: CallbackQuery) -> None:
     try:
         now = datetime.now(_KYIV).replace(tzinfo=None)
         date_from = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        rows = await get_transactions(
+        rows = await api_client.get_transactions(
             callback.from_user.id,
             limit=_EXPORT_LIMIT,
             offset=0,
@@ -277,7 +286,7 @@ async def cb_menu_export(callback: CallbackQuery) -> None:
 # ── Pagination callbacks ──────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("txn_page_"))
-async def cb_txn_page(callback: CallbackQuery) -> None:
+async def cb_txn_page(callback: CallbackQuery, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -294,12 +303,13 @@ async def cb_txn_page(callback: CallbackQuery) -> None:
         page=page,
         title="🧾 Останні транзакції",
         prefix="txn",
+        api_client=api_client,
         edit=True,
     )
 
 
 @router.callback_query(F.data.startswith("week_page_"))
-async def cb_week_page(callback: CallbackQuery) -> None:
+async def cb_week_page(callback: CallbackQuery, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -320,6 +330,7 @@ async def cb_week_page(callback: CallbackQuery) -> None:
         page=page,
         title="📅 Транзакції за цей тиждень",
         prefix="week",
+        api_client=api_client,
         date_from=date_from,
         date_to=now,
         edit=True,
@@ -327,7 +338,7 @@ async def cb_week_page(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data.startswith("month_page_"))
-async def cb_month_page(callback: CallbackQuery) -> None:
+async def cb_month_page(callback: CallbackQuery, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -346,6 +357,7 @@ async def cb_month_page(callback: CallbackQuery) -> None:
         page=page,
         title="📆 Транзакції за цей місяць",
         prefix="month",
+        api_client=api_client,
         date_from=date_from,
         date_to=now,
         edit=True,
@@ -355,7 +367,7 @@ async def cb_month_page(callback: CallbackQuery) -> None:
 # ── Delete callback ───────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("delete_tx_"))
-async def cb_delete_transaction(callback: CallbackQuery) -> None:
+async def cb_delete_transaction(callback: CallbackQuery, api_client: APIClient) -> None:
     try:
         await callback.answer()
     except Exception:
@@ -366,7 +378,7 @@ async def cb_delete_transaction(callback: CallbackQuery) -> None:
         await safe_edit_text(callback.message, "⚠️ Невірний ID транзакції", reply_markup=get_back_to_menu_keyboard())
         return
     try:
-        deleted = await delete_transaction(tx_id, callback.from_user.id)
+        deleted = await api_client.delete_transaction(callback.from_user.id, tx_id)
     except Exception as exc:
         logger.error("Failed to delete transaction: %s", exc)
         await safe_edit_text(

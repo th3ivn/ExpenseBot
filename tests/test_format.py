@@ -12,8 +12,13 @@ def _make_row(amount: float, merchant: str, date: datetime) -> MagicMock:
     row.__getitem__ = lambda self, key: {
         "amount": amount,
         "merchant": merchant,
-        "transaction_date": date,
+        "date": date.isoformat(),
     }[key]
+    row.get = lambda key, default=None: {
+        "amount": amount,
+        "merchant": merchant,
+        "date": date.isoformat(),
+    }.get(key, default)
     return row
 
 

@@ -6,8 +6,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import Filter
 from aiogram.types import Message, CallbackQuery
 
+from bot.api_client import APIClient
 from bot.config import load_config
-from bot.database.pool import close_pool, create_pool
 from bot.handlers import start, transactions, stats, add_expense
 from bot.webhook.server import create_webhook_app
 
@@ -33,10 +33,12 @@ class AllowedUserFilter(Filter):
 async def main() -> None:
     config = load_config()
 
-    await create_pool(config.database_url)
+    api_client = APIClient(base_url=config.api_base_url, bot_token=config.bot_token)
 
     bot = Bot(token=config.bot_token)
     dp = Dispatcher()
+
+    dp["api_client"] = api_client
 
     allowed_filter = AllowedUserFilter(config.allowed_user_id)
     dp.message.filter(allowed_filter)
@@ -52,6 +54,7 @@ async def main() -> None:
         bot=bot,
         allowed_user_id=config.allowed_user_id,
         webhook_secret=config.webhook_secret,
+        api_client=api_client,
     )
 
     runner = web.AppRunner(webhook_app)
@@ -66,7 +69,6 @@ async def main() -> None:
     finally:
         logger.info("Shutting down...")
         await runner.cleanup()
-        await close_pool()
         await bot.session.close()
 
 

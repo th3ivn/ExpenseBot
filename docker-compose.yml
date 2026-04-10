@@ -42,7 +42,6 @@ services:
     restart: unless-stopped
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-expensebot}:${POSTGRES_PASSWORD:-expensebot}@postgres:5432/${POSTGRES_DB:-expensebot}
       WEBHOOK_SECRET: ${WEBHOOK_SECRET}
       ALLOWED_USER_ID: ${ALLOWED_USER_ID}
       WEBHOOK_HOST: 0.0.0.0
@@ -52,8 +51,6 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
       api:
         condition: service_started
 

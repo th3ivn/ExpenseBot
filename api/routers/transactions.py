@@ -7,6 +7,7 @@ from api.dependencies import CurrentUser, DbSession
 from api.models.transaction import TransactionType
 from api.schemas.transaction import TransactionCreate, TransactionRead, TransactionUpdate
 from api.services.transaction import (
+    count_transactions,
     create_transaction,
     delete_transaction,
     get_recent,
@@ -16,6 +17,22 @@ from api.services.transaction import (
 )
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+
+
+@router.get("/count")
+async def read_count(
+    db: DbSession,
+    user: CurrentUser,
+    period_start: Optional[datetime] = Query(None),
+    period_end: Optional[datetime] = Query(None),
+    category_id: Optional[int] = Query(None),
+    account_id: Optional[int] = Query(None),
+    type: Optional[TransactionType] = Query(None),
+) -> dict:
+    total = await count_transactions(
+        db, user.id, period_start, period_end, category_id, account_id, type
+    )
+    return {"count": total}
 
 
 @router.get("", response_model=list[TransactionRead])
