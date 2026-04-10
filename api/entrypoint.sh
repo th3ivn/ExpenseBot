@@ -4,54 +4,30 @@ set -e
 echo "Running database migrations..."
 cd /app
 
-# If tables already exist but alembic_version doesn't, stamp the initial migration
-# This handles the case where tables were created outside of Alembic (e.g. by SQLAlchemy create_all)
-python -c "
-import os, sys
-from sqlalchemy import create_engine, text
+# Use alembic stamp to mark migrations as done if tables already exist
+# First, try to get current alembic version
+CURRENT=$(alembic -c api/database/migrations/alembic.ini current 2>&1 || true)
 
-url = os.environ.get('DATABASE_URL', '')
-if url.startswith('postgresql+asyncpg://'):
-    url = url.replace('postgresql+asyncpg://', 'postgresql://', 1)
-elif url.startswith('postgres://'):
-    url = url.replace('postgres://', 'postgresql://', 1)
-
-try:
-    engine = create_engine(url)
-    try:
-        with engine.connect() as conn:
-            # Check if alembic_version table exists
-            result = conn.execute(text(
-                \"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'alembic_version')\"
-            )).scalar()
-
-            if not result:
-                # Check if our app tables already exist
-                tables_exist = conn.execute(text(
-                    \"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')\"
-                )).scalar()
-
-                if tables_exist:
-                    print('Tables exist but alembic_version missing. Stamping 001_initial...')
-                    conn.execute(text(
-                        \"CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL, CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))\"
-                    ))
-                    conn.execute(text(
-                        \"INSERT INTO alembic_version (version_num) VALUES ('001_initial')\"
-                    ))
-                    conn.commit()
-                    print('Done. Alembic will skip initial migration.')
-                else:
-                    print('Fresh database. Alembic will run all migrations.')
-            else:
-                print('alembic_version exists. Normal migration flow.')
-    finally:
-        engine.dispose()
-except Exception as e:
-    print(f'Pre-migration check failed (non-fatal): {e}', file=sys.stderr)
-"
-
-alembic -c api/database/migrations/alembic.ini upgrade head
+if echo "$CURRENT" | grep -qE '(^|\s)001_initial(\s|$|\()'; then
+    echo "Migration 001_initial already applied."
+    alembic -c api/database/migrations/alembic.ini upgrade head
+else
+    ALEMBIC_ERR=$(mktemp)
+    # Try upgrade, if it fails due to existing tables, stamp instead
+    if ! alembic -c api/database/migrations/alembic.ini upgrade head 2>"$ALEMBIC_ERR"; then
+        if grep -qE "relation .* already exists|already exists" "$ALEMBIC_ERR"; then
+            echo "Tables already exist. Stamping current migration state..."
+            alembic -c api/database/migrations/alembic.ini stamp head
+            echo "Stamped. Future migrations will work normally."
+        else
+            echo "Migration failed with unexpected error:"
+            cat "$ALEMBIC_ERR"
+            rm -f "$ALEMBIC_ERR"
+            exit 1
+        fi
+    fi
+    rm -f "$ALEMBIC_ERR"
+fi
 
 echo "Starting API server..."
 exec uvicorn api.main:app --host 0.0.0.0 --port "${API_PORT:-8000}"
