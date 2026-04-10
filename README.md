@@ -1,220 +1,207 @@
-# ExpenseBot 💸
+# ExpenseBot 💰
 
-Telegram-бот для автоматичного трекінгу витрат через Apple Pay (iPhone Shortcuts).
+> Telegram Mini App для трекінгу витрат — аналог Brim (App Store), як Telegram WebApp.
+> Все українською мовою, тільки для України, валюта ₴.
 
-## Можливості
+## Архітектура
 
-- 📥 **Автоматичне збереження транзакцій** — через HTTP вебхук від iPhone Shortcuts
-- 🔔 **Миттєві сповіщення** — бот надсилає повідомлення при кожній новій транзакції
-- 🧾 **Перегляд транзакцій** — з пагінацією (кнопки ◀️ / ▶️)
-- 📅 **Транзакції за тиждень/місяць** — фільтрація по датах
-- 📊 **Статистика** — кількість, сума, середнє, максимум, мінімум за обраний період
-- 🔒 **Приватний бот** — доступ лише для одного користувача (власника)
+Мікросервісна архітектура з 3 незалежних сервісів:
 
----
+```
+bot ──HTTP──> api ──SQL──> postgres
+webapp ──HTTP──> api ──SQL──> postgres
+Apple Pay webhook ──HTTP──> api
+```
+
+### Сервіси:
+- **`bot/`** — Telegram Bot (aiogram 3.27+), обробляє команди, показує Mini App кнопку
+- **`api/`** — REST API (FastAPI + SQLAlchemy 2.0 async + PostgreSQL), основна бізнес-логіка
+- **`webapp/`** — Telegram Mini App (React 18 + TypeScript + Vite + Tailwind CSS)
 
 ## Технічний стек
 
-- **Python 3.12+**
-- **aiogram 3.15+** — Telegram Bot Framework
-- **aiohttp** — HTTP сервер для вебхуків
-- **asyncpg** — асинхронний PostgreSQL драйвер
-- **PostgreSQL** — база даних
-- **Railway** — хостинг
+| Шар | Технологія |
+|-----|-----------|
+| Bot | aiogram 3.27+, aiohttp |
+| API | FastAPI, SQLAlchemy 2.0 async, Pydantic v2 |
+| Database | PostgreSQL 16, asyncpg, Alembic |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Recharts |
+| Infrastructure | Docker, docker-compose |
 
----
+## Функціонал Mini App
 
-## Структура проєкту
+- 📊 **Дашборд** — бюджетне кільце, 4 аналітичні картки, останні транзакції
+- 📈 **Тренд витрат** — порівняння поточного місяця з середнім за 3 місяці
+- 🍩 **Розбивка витрат** — donut chart по групах і категоріях
+- 💰 **Норма збережень** — gauge діаграма + рівні (Базовий → Elite)
+- 📋 **Заплановані витрати** — регулярні транзакції
+- ➕ **Додати транзакцію** — Витрата / Дохід / Переказ
+- ⚙️ **Налаштування** — бюджет, категорії, рахунки, теги, регулярні
 
-```
-ExpenseBot/
-├── bot/
-│   ├── main.py              # Точка входу: запуск бота + aiohttp сервера
-│   ├── config.py            # Конфігурація (env variables)
-│   ├── handlers/
-│   │   ├── start.py         # /start команда + головне меню
-│   │   ├── transactions.py  # Перегляд транзакцій
-│   │   └── stats.py         # Статистика витрат
-│   ├── keyboards/
-│   │   └── main.py          # Клавіатури (inline + reply)
-│   ├── webhook/
-│   │   └── server.py        # aiohttp сервер для даних від Shortcuts
-│   ├── database/
-│   │   ├── pool.py          # Connection pool (asyncpg)
-│   │   └── transactions.py  # CRUD операції
-│   └── services/
-│       └── stats.py         # Логіка статистики
-├── requirements.txt
-├── Procfile
-├── railway.toml
-└── .env.example
-```
-
----
-
-## Налаштування та деплой
-
-### 1. Створення Telegram бота
-
-1. Відкрий [@BotFather](https://t.me/BotFather) в Telegram
-2. Надішли `/newbot` і дотримуйся інструкцій
-3. Отримай **BOT_TOKEN**
-4. Дізнайся свій **Telegram User ID** через [@userinfobot](https://t.me/userinfobot)
-
-### 2. Деплой на Railway
-
-1. Зареєструйся на [Railway](https://railway.app)
-2. Створи новий проєкт → **Deploy from GitHub repo**
-3. Підключи цей репозиторій
-4. Додай PostgreSQL сервіс: **New** → **Database** → **Add PostgreSQL**
-5. Скопіюй `DATABASE_URL` з налаштувань PostgreSQL сервісу
-6. Налаштуй змінні оточення (розділ **Variables**):
-
-```env
-BOT_TOKEN=<твій токен від BotFather>
-DATABASE_URL=<URL з Railway PostgreSQL>
-WEBHOOK_SECRET=<придумай секретний токен, наприклад: myS3cr3tT0k3n>
-ALLOWED_USER_ID=<твій Telegram user ID>
-WEBHOOK_HOST=0.0.0.0
-WEBHOOK_PORT=8080
-```
-
-7. Railway автоматично задеплоїть бота
-
-### 3. Отримання URL вебхуку
-
-Після деплою Railway надасть публічний URL у форматі:
-```
-https://your-app-name.up.railway.app
-```
-
-Вебхук ендпоінт буде доступний за адресою:
-```
-https://your-app-name.up.railway.app/api/transaction
-```
-
----
-
-## Налаштування iPhone Shortcuts (Автоматизація)
+## Швидкий старт (Docker)
 
 ### Вимоги
-- iPhone з iOS 17.5+
-- Додаток **Shortcuts** (вбудований в iOS)
+- Docker 24+
+- docker-compose 2+
 
-### Кроки налаштування
+### Запуск
 
-1. Відкрий **Shortcuts** → вкладка **Automation**
-2. Натисни **+** → **New Automation**
-3. Обери тригер **Transaction** (з'являється при прокрутці вниз)
-4. Налаштування тригера:
-   - **Any Card** або обери конкретну картку
-   - **Any Amount** або встанови мінімальну суму
-   - **Run Immediately** — вмикаємо, щоб не питало підтвердження кожного разу ✅
-5. Додай дію **Get Contents of URL**:
-   - **URL**: `https://your-app-name.up.railway.app/api/transaction`
-   - **Method**: `POST`
-   - **Request Body**: `JSON`
-   - Додай поля:
-     - `amount` → вибери **Shortcut Input** → **Amount**
-     - `merchant` → вибери **Shortcut Input** → **Name**
-     - `date` → вибери **Shortcut Input** → **Date** (форматуй як ISO 8601: `yyyy-MM-dd'T'HH:mm:ss`)
-     - `token` → введи свій `WEBHOOK_SECRET` (той самий, що в Railway)
-6. Збережи автоматизацію
-
-### Приклад JSON, що надсилається від Shortcuts
-
-```json
-{
-  "amount": 250.50,
-  "merchant": "Silpo UAH",
-  "date": "2026-04-07T14:30:00",
-  "token": "myS3cr3tT0k3n"
-}
+1. Скопіюй `.env.example` в `.env` і заповни змінні:
+```bash
+cp .env.example .env
 ```
 
----
-
-## Використання бота
-
-### Головне меню (Reply кнопки)
-
-| Кнопка | Дія |
-|--------|-----|
-| 🧾 Транзакції | Останні транзакції з пагінацією |
-| 📅 Цей тиждень | Транзакції з понеділка поточного тижня |
-| 📆 Цей місяць | Транзакції за поточний місяць |
-| 📊 Статистика | Вибір періоду для статистики |
-
-### Сповіщення про нову транзакцію
-
-```
-✅ Нова транзакція!
-
-💰 Сума: 250.50
-🏪 Продавець: Silpo UAH
-📅 Дата: 07.04.2026 14:30
+2. Запусти всі сервіси:
+```bash
+docker-compose up -d
 ```
 
-### Команди (допоміжні)
+3. Застосуй міграції бази даних:
+```bash
+docker-compose exec api alembic -c api/database/migrations/alembic.ini upgrade head
+```
 
-- `/start` — відкрити головне меню
-- `/transactions` — останні транзакції
-- `/week` — транзакції за тиждень
-- `/month` — транзакції за місяць
-- `/stats` — статистика
+4. Відкрий Mini App: `http://localhost:3000`
+   API доступне: `http://localhost:8000/docs`
 
----
+### Зупинити
+```bash
+docker-compose down
+```
 
-## Локальний запуск (для розробки)
+## Локальна розробка
+
+### Backend API
 
 ```bash
-# Клонуй репозиторій
-git clone https://github.com/th3ivn/ExpenseBot.git
-cd ExpenseBot
+cd /path/to/ExpenseBot
+pip install -r api/requirements.txt
 
-# Встанови залежності
+# Запуск
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost/expensebot \
+BOT_TOKEN=your_token \
+WEBHOOK_SECRET=your_secret \
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API документація: http://localhost:8000/docs
+
+### Bot
+
+```bash
 pip install -r requirements.txt
 
-# Скопіюй і заповни змінні оточення
-cp .env.example .env
-# Відредагуй .env своїми значеннями
-
-# Запусти бота
+BOT_TOKEN=your_token \
+DATABASE_URL=postgresql://user:pass@localhost/expensebot \
+WEBHOOK_SECRET=your_secret \
+ALLOWED_USER_ID=123456789 \
+WEBAPP_URL=http://localhost:3000 \
 python -m bot.main
 ```
 
-> **Примітка**: Для локального запуску потрібен PostgreSQL. Можна використати Docker:
-> ```bash
-> docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=password postgres:16
-> ```
+### Frontend Mini App
 
----
+```bash
+cd webapp
+cp .env.example .env
+# Встанови VITE_API_URL=http://localhost:8000 в .env
 
-## Вебхук API
-
-### `POST /api/transaction`
-
-Ендпоінт для прийому транзакцій від iPhone Shortcuts.
-
-**Тіло запиту:**
-```json
-{
-  "amount": 250.50,
-  "merchant": "Назва продавця",
-  "date": "2026-04-07T14:30:00",
-  "token": "WEBHOOK_SECRET"
-}
+npm install
+npm run dev
 ```
 
-**Відповідь (успіх):**
-```json
-{
-  "ok": true,
-  "id": 42
-}
+Mini App буде доступний на http://localhost:5173
+
+## Змінні середовища
+
+| Змінна | Опис | Обов'язкова |
+|--------|------|------------|
+| `BOT_TOKEN` | Telegram Bot API token | ✅ |
+| `DATABASE_URL` | PostgreSQL URL для бота (asyncpg) | ✅ |
+| `WEBHOOK_SECRET` | Секрет для Apple Pay webhook | ✅ |
+| `ALLOWED_USER_ID` | Telegram ID дозволеного користувача | ✅ |
+| `WEBAPP_URL` | URL задеплоєного Mini App | ⚪ |
+| `API_BASE_URL` | URL API сервісу (для бота) | ⚪ |
+| `POSTGRES_USER` | PostgreSQL user (docker-compose) | ⚪ |
+| `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | ⚪ |
+| `POSTGRES_DB` | PostgreSQL database name (docker-compose) | ⚪ |
+| `VITE_API_URL` | API URL для frontend (webapp/.env) | ✅ webapp |
+
+## API Endpoints
+
+| Метод | Шлях | Опис |
+|-------|------|------|
+| POST | `/api/auth/validate` | Валідація Telegram initData |
+| GET | `/api/transactions` | Список транзакцій |
+| POST | `/api/transactions` | Створити транзакцію |
+| PUT | `/api/transactions/{id}` | Оновити транзакцію |
+| DELETE | `/api/transactions/{id}` | Видалити транзакцію |
+| GET | `/api/categories` | Категорії |
+| GET | `/api/accounts` | Рахунки з балансами |
+| GET | `/api/budgets/current` | Поточний бюджет |
+| GET | `/api/stats/summary` | Зведена статистика |
+| GET | `/api/stats/trend` | Тренд витрат |
+| GET | `/api/stats/breakdown` | Розбивка по категоріях |
+| GET | `/api/stats/savings-rate` | Норма збережень |
+| GET | `/api/settings` | Налаштування |
+| POST | `/api/webhook/transaction` | Apple Pay webhook |
+
+Повна документація API: `/docs` (Swagger UI)
+
+## Міграції бази даних (Alembic)
+
+```bash
+# Застосувати всі міграції
+alembic -c api/database/migrations/alembic.ini upgrade head
+
+# Відкотити останню міграцію
+alembic -c api/database/migrations/alembic.ini downgrade -1
+
+# Переглянути статус
+alembic -c api/database/migrations/alembic.ini current
 ```
 
-**Коди відповідей:**
-- `200` — транзакцію збережено
-- `400` — невірний формат даних
-- `401` — невірний токен
+## Deploy на Railway
+
+Кожен сервіс деплоїться окремо:
+
+1. **PostgreSQL** — Railway Postgres plugin
+2. **API** — `Dockerfile.api`, env vars з Railway dashboard
+3. **Bot** — `Dockerfile.bot`, env vars з Railway dashboard
+4. **Webapp** — `Dockerfile.webapp` або Vercel/Netlify (static)
+
+## Структура проекту
+
+```
+ExpenseBot/
+├── bot/                    # Telegram Bot (aiogram)
+│   ├── api_client.py       # HTTP client для API сервісу
+│   ├── handlers/           # Обробники команд
+│   ├── keyboards/          # Клавіатури
+│   ├── database/           # Пряме підключення до БД (legacy)
+│   └── services/           # Бізнес-логіка бота
+│
+├── api/                    # Backend API (FastAPI)
+│   ├── auth/               # Telegram initData auth
+│   ├── routers/            # API routes
+│   ├── models/             # SQLAlchemy моделі
+│   ├── schemas/            # Pydantic схеми
+│   ├── services/           # Бізнес-логіка
+│   └── database/           # DB сесія + Alembic міграції
+│
+├── webapp/                 # Telegram Mini App (React + TS + Vite)
+│   ├── src/
+│   │   ├── components/     # UI компоненти
+│   │   ├── pages/          # Сторінки
+│   │   ├── hooks/          # React hooks
+│   │   ├── api/            # API клієнт
+│   │   ├── types/          # TypeScript типи
+│   │   └── utils/          # Утиліти
+│   └── nginx.conf          # nginx конфіг для production
+│
+├── docker-compose.yml      # Локальна розробка
+├── Dockerfile.bot
+├── Dockerfile.api
+├── Dockerfile.webapp
+└── requirements.txt        # Python залежності бота
+```
