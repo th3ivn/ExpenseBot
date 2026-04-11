@@ -7,7 +7,7 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
-from bot.api_client import APIClient, TRANSACTIONS_PER_PAGE
+from bot.api_client import APIClient, APIError, TRANSACTIONS_PER_PAGE
 from bot.keyboards.main import (
     get_back_to_menu_keyboard,
     get_transactions_pagination_keyboard,
@@ -120,9 +120,23 @@ async def _show_transactions(
                 text=text,
                 reply_markup=keyboard,
             )
-    except Exception as exc:
-        logger.error("Failed to load transactions: %s", exc)
-        error_text = "⚠️ Помилка завантаження. Спробуйте ще раз."
+    except APIError as exc:
+        logger.error("Failed to load transactions (API error): %s", exc)
+        error_text = f"⚠️ {exc.hint}.\nСпробуйте ще раз."
+        if edit:
+            await safe_edit_text(message, error_text, reply_markup=get_back_to_menu_keyboard())
+            set_last_menu_message(user_id, message.message_id)
+        else:
+            await send_or_replace(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                user_id=user_id,
+                text=error_text,
+                reply_markup=get_back_to_menu_keyboard(),
+            )
+    except Exception:
+        logger.exception("Unexpected error while loading transactions")
+        error_text = "⚠️ Неочікувана помилка. Спробуйте ще раз."
         if edit:
             await safe_edit_text(message, error_text, reply_markup=get_back_to_menu_keyboard())
             set_last_menu_message(user_id, message.message_id)
@@ -276,9 +290,12 @@ async def cb_menu_export(callback: CallbackQuery, api_client: APIClient) -> None
             date_to=now,
         )
         text = _format_export(rows, now)
-    except Exception as exc:
-        logger.error("Failed to load export: %s", exc)
-        text = "⚠️ Помилка завантаження. Спробуйте ще раз."
+    except APIError as exc:
+        logger.error("Failed to load export (API error): %s", exc)
+        text = f"⚠️ {exc.hint}.\nСпробуйте ще раз."
+    except Exception:
+        logger.exception("Unexpected error while loading export")
+        text = "⚠️ Неочікувана помилка. Спробуйте ще раз."
     await safe_edit_text(callback.message, text, reply_markup=get_back_to_menu_keyboard())
     set_last_menu_message(callback.from_user.id, callback.message.message_id)
 
@@ -379,11 +396,19 @@ async def cb_delete_transaction(callback: CallbackQuery, api_client: APIClient) 
         return
     try:
         deleted = await api_client.delete_transaction(callback.from_user.id, tx_id)
-    except Exception as exc:
-        logger.error("Failed to delete transaction: %s", exc)
+    except APIError as exc:
+        logger.error("Failed to delete transaction (API error): %s", exc)
         await safe_edit_text(
             callback.message,
-            "⚠️ Помилка видалення. Спробуйте ще раз.",
+            f"⚠️ {exc.hint}.\nСпробуйте ще раз.",
+            reply_markup=get_back_to_menu_keyboard(),
+        )
+        return
+    except Exception:
+        logger.exception("Unexpected error while deleting transaction")
+        await safe_edit_text(
+            callback.message,
+            "⚠️ Неочікувана помилка. Спробуйте ще раз.",
             reply_markup=get_back_to_menu_keyboard(),
         )
         return
