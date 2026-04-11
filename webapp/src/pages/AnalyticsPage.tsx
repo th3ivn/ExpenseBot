@@ -44,7 +44,7 @@ export function AnalyticsPage() {
   const title = TITLES[location.pathname] ?? 'Аналітика';
 
   return (
-    <div className="flex flex-col bg-bg-primary" style={{ height: '100dvh' }}>
+    <div className="flex flex-col bg-bg-primary" style={{ height: '100%' }}>
       {/* Header */}
       <div
         className="flex-shrink-0 px-4 pb-3 bg-bg-primary"

@@ -36,7 +36,7 @@ function SubPageHeader({ path }: { path: string }) {
 
 export function SettingsPage() {
   return (
-    <div className="flex flex-col bg-bg-primary" style={{ height: '100dvh' }}>
+    <div className="flex flex-col bg-bg-primary" style={{ height: '100%' }}>
       <Routes>
         <Route
           index

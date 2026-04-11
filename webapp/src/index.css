@@ -10,6 +10,7 @@
 html, body {
   margin: 0;
   padding: 0;
+  height: 100%;
   background-color: #0A0A0F;
   color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif;
@@ -17,6 +18,10 @@ html, body {
   -webkit-user-select: none;
   user-select: none;
   touch-action: pan-y;
+}
+
+#root {
+  height: 100%;
 }
 
 input, textarea {
