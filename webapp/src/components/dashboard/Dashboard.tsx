@@ -39,6 +39,7 @@ export function Dashboard({ onSelectTransaction }: DashboardProps) {
       >
         <button
           type="button"
+          onClick={() => navigate('/settings/budget')}
           className="flex items-center gap-2 bg-bg-secondary rounded-full px-4 py-2 border border-white/10 active:opacity-70 transition-opacity"
         >
           <span className="text-text-primary text-sm font-semibold">{periodLabel}</span>

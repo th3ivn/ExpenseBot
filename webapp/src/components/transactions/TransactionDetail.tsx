@@ -27,7 +27,7 @@ export function TransactionDetail({ transaction, onClose, onDelete, onEdit }: Tr
   };
 
   return (
-    <BottomSheet isOpen={!!transaction} onClose={onClose}>
+    <BottomSheet isOpen={!!transaction} onClose={onClose} noHeader>
       {/* Custom header with X + Edit */}
       <div className="flex items-center px-4 pb-2">
         <button

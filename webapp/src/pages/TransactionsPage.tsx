@@ -36,7 +36,9 @@ export function TransactionsPage() {
           <h1 className="text-text-primary text-xl font-bold">Операції</h1>
           <button
             type="button"
-            className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center active:opacity-70 transition-opacity"
+            disabled
+            aria-label="Пошук (скоро)"
+            className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center opacity-40 cursor-not-allowed"
           >
             <Search size={18} className="text-text-secondary" />
           </button>

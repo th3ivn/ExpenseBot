@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
 import { TabSwitcher } from '../ui/TabSwitcher';
 import { DonutChart } from '../ui/DonutChart';
 import { formatCurrency } from '../../utils/format';
@@ -48,10 +47,9 @@ export function ExpenseBreakdown({ data, loading }: ExpenseBreakdownProps) {
       {/* List */}
       <div className="bg-bg-secondary rounded-3xl overflow-hidden">
         {items.map((item, idx) => (
-          <button
+          <div
             key={item.name}
-            type="button"
-            className={`w-full flex items-center gap-3 px-4 py-3.5 active:bg-bg-elevated transition-colors text-left ${
+            className={`flex items-center gap-3 px-4 py-3.5 ${
               idx < items.length - 1 ? 'border-b border-bg-tertiary' : ''
             }`}
           >
@@ -65,8 +63,7 @@ export function ExpenseBreakdown({ data, loading }: ExpenseBreakdownProps) {
             <span className="text-text-primary text-sm font-semibold">
               {formatCurrency(item.amount)}
             </span>
-            <ChevronRight size={14} className="text-bg-tertiary" />
-          </button>
+          </div>
         ))}
       </div>
     </div>

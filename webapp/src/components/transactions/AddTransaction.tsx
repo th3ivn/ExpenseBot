@@ -138,17 +138,14 @@ export function AddTransaction({ isOpen, onClose, onAdded }: AddTransactionProps
         {/* Category (not for transfer) */}
         {tab !== 'transfer' && (
           <div className="bg-bg-tertiary rounded-2xl overflow-hidden">
-            <button
-              type="button"
-              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-bg-elevated transition-colors"
-            >
+            <div className="w-full flex items-center gap-3 px-4 py-3.5">
               <FolderOpen size={18} className="text-text-secondary flex-shrink-0" />
-              <span className="flex-1 text-text-primary text-sm text-left">
+              <span className="flex-1 text-text-primary text-sm">
                 {selectedCategory
                   ? `${selectedCategory.emoji} ${selectedCategory.name}`
                   : 'Обрати категорію'}
               </span>
-            </button>
+            </div>
             {/* Category chips */}
             {categories.length > 0 && (
               <div className="px-4 pb-3">
