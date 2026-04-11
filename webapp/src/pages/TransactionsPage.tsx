@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Search } from 'lucide-react';
 import { TransactionList } from '../components/transactions/TransactionList';
 import { TransactionDetail } from '../components/transactions/TransactionDetail';
 import { AddTransaction } from '../components/transactions/AddTransaction';
@@ -25,12 +26,25 @@ export function TransactionsPage() {
   });
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 pt-4 pb-2">
+    <div className="flex flex-col bg-bg-primary" style={{ height: '100dvh' }}>
+      {/* Header */}
+      <div
+        className="flex-shrink-0 px-4 pb-3 bg-bg-primary"
+        style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-text-primary text-xl font-bold">Операції</h1>
+          <button
+            type="button"
+            className="w-10 h-10 rounded-full bg-bg-secondary flex items-center justify-center active:opacity-70 transition-opacity"
+          >
+            <Search size={18} className="text-text-secondary" />
+          </button>
+        </div>
         <TabSwitcher tabs={TYPE_TABS} active={filter} onChange={setFilter} />
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pt-2">
         <TransactionList
           transactions={transactions}
           loading={loading}

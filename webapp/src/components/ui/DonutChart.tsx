@@ -29,34 +29,37 @@ export function DonutChart({
 
   const cx = size / 2;
   const cy = size / 2;
+  const fontSize = size > 150 ? 18 : size > 80 ? 12 : 9;
+  const subFontSize = size > 150 ? 13 : size > 80 ? 10 : 8;
 
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        {/* background track */}
-        <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#2C2C2E" strokeWidth={strokeWidth} />
+        <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#252B3B" strokeWidth={strokeWidth} />
         {slices.map((s, i) => (
           <circle
             key={i}
-            cx={cx}
-            cy={cy}
-            r={radius}
+            cx={cx} cy={cy} r={radius}
             fill="none"
             stroke={s.color}
             strokeWidth={strokeWidth}
             strokeDasharray={`${s.dash} ${s.gap}`}
             strokeDashoffset={-s.offset}
-            strokeLinecap="round"
+            strokeLinecap="butt"
           />
         ))}
       </svg>
       {(centerLabel ?? centerSublabel) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          {centerLabel && (
-            <span className="text-text-primary font-bold text-xs leading-none">{centerLabel}</span>
-          )}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-2">
           {centerSublabel && (
-            <span className="text-text-secondary text-[9px] leading-none mt-0.5">{centerSublabel}</span>
+            <span className="text-text-secondary text-center leading-tight" style={{ fontSize: subFontSize }}>
+              {centerSublabel}
+            </span>
+          )}
+          {centerLabel && (
+            <span className="text-text-primary font-bold text-center leading-tight" style={{ fontSize }}>
+              {centerLabel}
+            </span>
           )}
         </div>
       )}

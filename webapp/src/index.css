@@ -10,11 +10,22 @@
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #000000;
+  background-color: #0A0A0F;
   color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif;
   overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-y;
 }
+
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
 
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
@@ -27,4 +38,9 @@ input[type="color"] {
   border: none;
   background: none;
   cursor: pointer;
+}
+
+input[type="datetime-local"],
+input[type="date"] {
+  color-scheme: dark;
 }
