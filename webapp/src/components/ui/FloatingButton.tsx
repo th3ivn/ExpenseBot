@@ -3,13 +3,19 @@ interface FloatingButtonProps {
   label?: string;
 }
 
-export function FloatingButton({ onClick, label = '+ Додати' }: FloatingButtonProps) {
+export function FloatingButton({ onClick, label = 'Додати' }: FloatingButtonProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="fixed bottom-24 right-4 z-40 bg-accent-cyan text-bg-primary font-semibold px-5 py-3 rounded-full shadow-lg active:scale-95 transition-transform text-sm"
+      className="fixed z-40 bg-bg-elevated text-text-primary font-semibold px-6 py-3.5 rounded-full shadow-xl active:scale-95 transition-transform flex items-center gap-2 border border-white/10"
+      style={{
+        bottom: 'max(24px, env(safe-area-inset-bottom))',
+        right: '16px',
+      }}
     >
-      {label}
+      <span>{label}</span>
+      <span className="text-accent-cyan font-bold text-lg leading-none">+</span>
     </button>
   );
 }

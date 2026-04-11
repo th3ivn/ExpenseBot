@@ -12,11 +12,13 @@ export function DashboardPage() {
   const { refetch, deleteTransaction } = useTransactions({ limit: 1 });
 
   return (
-    <div className="px-4 pt-4 pb-4">
-      <Dashboard
-        onSelectTransaction={setSelected}
-      />
+    <div className="relative flex flex-col bg-bg-primary" style={{ height: '100dvh' }}>
+      <div className="flex-1 overflow-y-auto">
+        <Dashboard onSelectTransaction={setSelected} />
+      </div>
+
       <FloatingButton onClick={() => setAddOpen(true)} />
+
       <AddTransaction
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}

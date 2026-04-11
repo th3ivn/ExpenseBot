@@ -12,14 +12,15 @@ interface TabSwitcherProps {
 
 export function TabSwitcher({ tabs, active, onChange, className = '' }: TabSwitcherProps) {
   return (
-    <div className={`flex bg-bg-tertiary rounded-xl p-1 ${className}`}>
+    <div className={`flex bg-bg-tertiary rounded-2xl p-1 ${className}`}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           onClick={() => onChange(tab.id)}
-          className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-all ${
+          className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all ${
             active === tab.id
-              ? 'bg-bg-secondary text-text-primary shadow-sm'
+              ? 'bg-bg-elevated text-text-primary shadow-sm'
               : 'text-text-secondary'
           }`}
         >

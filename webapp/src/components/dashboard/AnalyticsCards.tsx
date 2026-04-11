@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { TrendingUp, PieChart, CalendarClock, Banknote } from 'lucide-react';
 import { LineChart } from '../ui/LineChart';
 import { DonutChart } from '../ui/DonutChart';
 import { GaugeChart } from '../ui/GaugeChart';
@@ -30,14 +31,13 @@ export function AnalyticsCards({
       : 0;
 
   const topCategories = breakdown?.categories?.slice(0, 3) ?? [];
-
   const savingsLevel = savingsRate ? getSavingsLevel(savingsRate.rate) : null;
 
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-3">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-32 bg-bg-secondary rounded-2xl animate-pulse" />
+          <div key={i} className="h-40 bg-bg-secondary rounded-3xl animate-pulse" />
         ))}
       </div>
     );
@@ -47,94 +47,120 @@ export function AnalyticsCards({
     <div className="grid grid-cols-2 gap-3">
       {/* Trend */}
       <button
-        onClick={() => navigate('/analytics/trend')}
-        className="bg-bg-secondary rounded-2xl p-3 flex flex-col text-left active:scale-[0.97] transition-transform"
+        type="button"
+        onClick={() => navigate('/analytics')}
+        className="rounded-3xl p-4 flex flex-col text-left active:scale-[0.97] transition-transform"
+        style={{ backgroundColor: '#141D2E' }}
       >
-        <div className="flex items-center gap-1 mb-1">
-          <span className="text-base">📈</span>
-          <span className="text-text-secondary text-xs">Тренд</span>
+        <div className="flex items-center gap-2 mb-2">
+          <TrendingUp size={15} className="text-text-secondary" />
+          <span className="text-text-secondary text-xs font-medium">Тренд</span>
         </div>
-        <span
-          className={`text-sm font-semibold ${trendChange >= 0 ? 'text-accent-red' : 'text-accent-green'}`}
-        >
-          {trendChange >= 0 ? '+' : ''}
-          {trendChange.toFixed(1)}%
+        <span className={`text-2xl font-bold ${trendChange >= 0 ? 'text-accent-red' : 'text-accent-green'}`}>
+          {trendChange >= 0 ? '+' : ''}{trendChange.toFixed(0)}%
         </span>
-        <div className="mt-2 flex-1">
+        <div className="mt-2 flex-1 min-h-[40px]">
           <LineChart data={trend} mini />
         </div>
+        {trend.length === 0 && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-text-secondary text-xs">— Немає даних</span>
+          </div>
+        )}
       </button>
 
-      {/* Top expenses donut */}
+      {/* Breakdown */}
       <button
+        type="button"
         onClick={() => navigate('/analytics/breakdown')}
-        className="bg-bg-secondary rounded-2xl p-3 flex flex-col items-center text-center active:scale-[0.97] transition-transform"
+        className="rounded-3xl p-4 flex flex-col active:scale-[0.97] transition-transform"
+        style={{ backgroundColor: '#1A1030' }}
       >
-        <div className="flex items-center gap-1 mb-1 self-start">
-          <span className="text-base">🕐</span>
-          <span className="text-text-secondary text-xs">Витрати</span>
+        <div className="flex items-center gap-2 mb-2">
+          <PieChart size={15} className="text-text-secondary" />
+          <span className="text-text-secondary text-xs font-medium">Витрати</span>
         </div>
-        <DonutChart
-          data={topCategories.map((c) => ({ value: c.amount, color: c.color, label: c.name }))}
-          size={72}
-          strokeWidth={10}
-          centerLabel={breakdown ? formatCurrency(breakdown.total).replace(' ₴', '') : '—'}
-          centerSublabel="₴"
-        />
+        <span className="text-text-primary text-lg font-bold leading-tight">
+          {breakdown ? formatCurrency(breakdown.total) : '—'}
+        </span>
+        <div className="flex-1 flex items-center justify-center mt-2">
+          <DonutChart
+            data={
+              topCategories.length > 0
+                ? topCategories.map((c) => ({ value: c.amount, color: c.color, label: c.name }))
+                : [{ value: 1, color: '#252B3B', label: '' }]
+            }
+            size={72}
+            strokeWidth={12}
+          />
+        </div>
+        {topCategories[0] && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: topCategories[0].color }}
+            />
+            <span className="text-text-secondary text-xs truncate">{topCategories[0].name}</span>
+          </div>
+        )}
       </button>
 
       {/* Planned */}
       <button
+        type="button"
         onClick={() => navigate('/analytics/planned')}
-        className="bg-bg-secondary rounded-2xl p-3 flex flex-col text-left active:scale-[0.97] transition-transform"
+        className="rounded-3xl p-4 flex flex-col text-left active:scale-[0.97] transition-transform"
+        style={{ backgroundColor: '#1C1008' }}
       >
-        <div className="flex items-center gap-1 mb-1">
-          <span className="text-base">📋</span>
-          <span className="text-text-secondary text-xs">Заплановані</span>
+        <div className="flex items-center gap-2 mb-2">
+          <CalendarClock size={15} className="text-text-secondary" />
+          <span className="text-text-secondary text-xs font-medium">Заплановані</span>
         </div>
-        {recurring.length === 0 ? (
-          <span className="text-text-secondary text-xs mt-1">Немає</span>
-        ) : (
-          <div className="mt-1 space-y-1">
-            {recurring.slice(0, 2).map((r) => (
-              <div key={r.id} className="flex justify-between items-center">
-                <span className="text-text-secondary text-[10px] truncate max-w-[80px]">
-                  {r.description ?? 'Без назви'}
-                </span>
-                <span className="text-accent-red text-[10px] font-medium">
-                  {formatCurrency(r.amount)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        <span className="text-accent-cyan text-xs mt-auto pt-1">
-          {recurring.length} шт.
+        <span className="text-text-primary text-2xl font-bold">
+          {formatCurrency(
+            recurring
+              .filter((r) => r.type === 'expense')
+              .reduce((s, r) => s + r.amount, 0),
+          )}
         </span>
+        <div className="flex-1 flex flex-col justify-end mt-2">
+          {recurring.length === 0 ? (
+            <span className="text-text-secondary text-xs">Немає витрат</span>
+          ) : (
+            <span className="text-text-secondary text-xs">{recurring.length} шт.</span>
+          )}
+        </div>
       </button>
 
       {/* Savings rate */}
       <button
+        type="button"
         onClick={() => navigate('/analytics/savings')}
-        className="bg-bg-secondary rounded-2xl p-3 flex flex-col items-center active:scale-[0.97] transition-transform"
+        className="rounded-3xl p-4 flex flex-col active:scale-[0.97] transition-transform"
+        style={{ backgroundColor: '#1C1008' }}
       >
-        <div className="flex items-center gap-1 mb-1 self-start">
-          <span className="text-base">📊</span>
-          <span className="text-text-secondary text-xs">Збереження</span>
+        <div className="flex items-center gap-2 mb-2">
+          <Banknote size={15} className="text-text-secondary" />
+          <span className="text-text-secondary text-xs font-medium">Збереження</span>
         </div>
-        <GaugeChart
-          value={savingsRate?.rate ?? 0}
-          max={50}
-          size={80}
-          color={savingsLevel?.color ?? '#8E8E93'}
-        />
-        <span className="text-text-primary font-bold text-sm -mt-1">
-          {savingsRate?.rate?.toFixed(1) ?? '—'}%
+        <span className="text-text-primary text-2xl font-bold">
+          {savingsRate?.rate?.toFixed(0) ?? '0'}%
         </span>
+        <div className="flex-1 flex items-center justify-center mt-1">
+          <GaugeChart
+            value={savingsRate?.rate ?? 0}
+            max={50}
+            size={80}
+            color={savingsLevel?.color ?? '#8E8E93'}
+          />
+        </div>
         {savingsLevel && (
-          <span className="text-[10px] mt-0.5" style={{ color: savingsLevel.color }}>
-            {savingsLevel.label}
-          </span>
+          <div className="flex items-center gap-1.5 -mt-1">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: savingsLevel.color }} />
+            <span className="text-xs font-medium" style={{ color: savingsLevel.color }}>
+              {savingsLevel.label}
+            </span>
+          </div>
         )}
       </button>
     </div>
