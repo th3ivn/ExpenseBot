@@ -12,7 +12,7 @@ export function DashboardPage() {
   const { refetch, deleteTransaction } = useTransactions({ limit: 1 });
 
   return (
-    <div className="relative flex flex-col bg-bg-primary" style={{ height: '100dvh' }}>
+    <div className="relative flex flex-col bg-bg-primary" style={{ height: '100%' }}>
       <div className="flex-1 overflow-y-auto">
         <Dashboard onSelectTransaction={setSelected} />
       </div>

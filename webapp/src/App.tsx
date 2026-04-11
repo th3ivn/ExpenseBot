@@ -29,13 +29,14 @@ export default function App() {
   return (
     <div
       className="bg-bg-primary text-text-primary"
-      style={{ height: '100dvh', overflow: 'hidden' }}
+      style={{ height: '100%', overflow: 'hidden' }}
     >
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/analytics/*" element={<AnalyticsPage />} />
         <Route path="/settings/*" element={<SettingsPage />} />
+        <Route path="*" element={<DashboardPage />} />
       </Routes>
     </div>
   );
