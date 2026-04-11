@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 
 TRANSACTIONS_PER_PAGE = 5
 
-_MAX_RETRIES = 2
+_MAX_RETRIES = 1
 _RETRY_BASE_DELAY = 0.5
-_REQUEST_TIMEOUT = 10.0
+_REQUEST_TIMEOUT = 5.0
 
 # Only idempotent HTTP methods are retried. POST is excluded because the
 # server may have committed the request before the network failure, and a
@@ -102,11 +102,14 @@ class APIClient:
             except httpx.HTTPError as exc:
                 logger.error("API transport error [%s %s]: %s", method, url, exc)
                 raise APIError(
-                    f"Transport error on {method} {path}: {exc}",
+                    f"Transport error on {method} {path}",
                     hint="Помилка мережі",
                 ) from exc
 
             if response.status_code >= 400:
+                # Body preview stays in structured logs only — never in the
+                # exception message — to avoid leaking PII or server stack
+                # traces through log lines that re-print the exception.
                 body_preview = response.text[:500] if response.text else ""
                 logger.error(
                     "API error [%s %s] -> HTTP %d: %s",
@@ -121,7 +124,7 @@ class APIClient:
                     continue
 
                 raise APIError(
-                    f"HTTP {response.status_code} on {method} {path}: {body_preview}",
+                    f"HTTP {response.status_code} on {method} {path}",
                     status_code=response.status_code,
                     hint=_hint_for_status(response.status_code),
                 )
@@ -132,12 +135,13 @@ class APIClient:
             try:
                 return response.json()
             except ValueError as exc:
+                # Raw body stays in logs only, not in the exception message.
                 logger.error(
                     "Invalid JSON from [%s %s]: %s | body: %s",
                     method, url, exc, response.text[:500],
                 )
                 raise APIError(
-                    f"Invalid JSON in response from {path}",
+                    f"Invalid JSON in response from {method} {path}",
                     hint="Некоректна відповідь API",
                 ) from exc
 
