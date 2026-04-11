@@ -1,27 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
 from api.dependencies import CurrentUser, DbSession
 from api.models.merchant_rule import MerchantRule
-from pydantic import BaseModel, ConfigDict
-from datetime import datetime
+from api.schemas.merchant_rule import MerchantRuleCreate, MerchantRuleRead
 
 router = APIRouter(prefix="/merchant-rules", tags=["merchant-rules"])
-
-
-class MerchantRuleCreate(BaseModel):
-    merchant_pattern: str
-    category_id: int
-
-
-class MerchantRuleRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    user_id: int
-    merchant_pattern: str
-    category_id: int
-    created_at: datetime
 
 
 @router.get("", response_model=list[MerchantRuleRead])
@@ -50,6 +34,5 @@ async def delete(db: DbSession, user: CurrentUser, rule_id: int) -> None:
     )
     rule = result.scalar_one_or_none()
     if rule is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Правило не знайдено")
     await db.delete(rule)

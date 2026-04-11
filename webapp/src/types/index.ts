@@ -34,11 +34,12 @@ export interface Transaction {
   amount: number;
   description?: string;
   merchant?: string;
-  category?: Category;
+  category_id?: number;
+  category?: Pick<Category, 'id' | 'name' | 'emoji' | 'color' | 'group_name'>;
   account_id: number;
-  account?: Account;
+  account?: Pick<Account, 'id' | 'name' | 'emoji'>;
   to_account_id?: number;
-  to_account?: Account;
+  to_account?: Pick<Account, 'id' | 'name' | 'emoji'>;
   date: string;
   created_at: string;
   tags: Tag[];
@@ -70,7 +71,8 @@ export interface RecurringTransaction {
   type: TransactionType;
   amount: number;
   description?: string;
-  category?: Category;
+  category_id?: number;
+  category?: Pick<Category, 'id' | 'name' | 'emoji' | 'color' | 'group_name'>;
   account_id: number;
   to_account_id?: number;
   frequency: RecurringFrequency;

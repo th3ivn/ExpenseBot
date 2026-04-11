@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
 from api.dependencies import CurrentUser, DbSession
@@ -30,7 +30,6 @@ async def update(db: DbSession, user: CurrentUser, tag_id: int, body: TagUpdate)
     result = await db.execute(select(Tag).where(Tag.id == tag_id, Tag.user_id == user.id))
     tag = result.scalar_one_or_none()
     if tag is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Тег не знайдено")
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(tag, field, value)
@@ -44,6 +43,5 @@ async def delete(db: DbSession, user: CurrentUser, tag_id: int) -> None:
     result = await db.execute(select(Tag).where(Tag.id == tag_id, Tag.user_id == user.id))
     tag = result.scalar_one_or_none()
     if tag is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Тег не знайдено")
     await db.delete(tag)

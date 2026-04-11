@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from api.models.recurring import RecurringFrequency
 from api.models.transaction import TransactionType
+from api.schemas.transaction import CategoryRef
 
 
 class RecurringCreate(BaseModel):
@@ -43,8 +44,7 @@ class RecurringRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    user_id: int
-    type: str
+    type: TransactionType
     amount: Decimal
     description: Optional[str]
     category_id: Optional[int]
@@ -53,4 +53,4 @@ class RecurringRead(BaseModel):
     frequency: RecurringFrequency
     next_date: datetime
     is_active: bool
-    created_at: datetime
+    category: Optional[CategoryRef] = None

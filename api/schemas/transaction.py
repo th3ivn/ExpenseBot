@@ -9,9 +9,28 @@ from api.models.transaction import TransactionType
 
 class TagRef(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     color: str
+
+
+class CategoryRef(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    emoji: str
+    color: str
+    group_name: Optional[str] = None
+
+
+class AccountRef(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    emoji: str
 
 
 class TransactionCreate(BaseModel):
@@ -56,7 +75,6 @@ class TransactionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    user_id: int
     type: TransactionType
     amount: Decimal
     description: Optional[str]
@@ -66,5 +84,7 @@ class TransactionRead(BaseModel):
     to_account_id: Optional[int]
     date: datetime
     created_at: datetime
-    updated_at: datetime
     tags: list[TagRef] = []
+    category: Optional[CategoryRef] = None
+    account: Optional[AccountRef] = None
+    to_account: Optional[AccountRef] = None
