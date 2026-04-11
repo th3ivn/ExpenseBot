@@ -2,16 +2,19 @@ import { useState, useEffect, useCallback } from 'react';
 import type { TelegramWebApp } from '../utils/telegram';
 import { getTelegramWebApp } from '../utils/telegram';
 
+let initialized = false;
+
 export function useTelegram() {
-  const [tg, setTg] = useState<TelegramWebApp | null>(null);
+  const [tg, setTg] = useState<TelegramWebApp | null>(() => getTelegramWebApp());
 
   useEffect(() => {
     const instance = getTelegramWebApp();
-    if (instance) {
+    if (instance && !initialized) {
+      initialized = true;
       instance.ready();
       instance.expand();
-      setTg(instance);
     }
+    setTg(instance);
   }, []);
 
   const user = tg?.initDataUnsafe?.user ?? null;

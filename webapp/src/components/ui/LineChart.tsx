@@ -16,6 +16,9 @@ interface LineChartProps {
 
 export function LineChart({ data, mini }: LineChartProps) {
   if (mini) {
+    if (data.length === 0) {
+      return <div style={{ height: 40 }} />;
+    }
     return (
       <ResponsiveContainer width="100%" height={40}>
         <ReLineChart data={data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
@@ -41,8 +44,19 @@ export function LineChart({ data, mini }: LineChartProps) {
     );
   }
 
+  if (data.length === 0) {
+    return (
+      <div
+        style={{ height: 220 }}
+        className="flex items-center justify-center text-text-secondary text-sm"
+      >
+        Немає даних
+      </div>
+    );
+  }
+
   return (
-    <ResponsiveContainer width="100%" height={220}>
+    <ResponsiveContainer width="100%" height={220} minWidth={10}>
       <ReLineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#2C2C2E" />
         <XAxis

@@ -1,5 +1,4 @@
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
 import { DashboardPage } from './pages/DashboardPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
@@ -14,16 +13,9 @@ const NAV_TABS = [
 ];
 
 export default function App() {
-  const { tg } = useTelegram();
+  useTelegram();
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    if (tg) {
-      tg.ready();
-      tg.expand();
-    }
-  }, [tg]);
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
