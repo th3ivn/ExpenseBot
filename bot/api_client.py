@@ -13,6 +13,11 @@ _MAX_RETRIES = 2
 _RETRY_BASE_DELAY = 0.5
 _REQUEST_TIMEOUT = 10.0
 
+# Only idempotent HTTP methods are retried. POST is excluded because the
+# server may have committed the request before the network failure, and a
+# retry would create duplicate records (e.g. double-inserted transactions).
+_IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
+
 
 class APIError(Exception):
     """Raised when an API request fails. Carries a user-facing hint."""
@@ -61,15 +66,19 @@ class APIClient:
             headers["X-Telegram-User-Id"] = str(telegram_user_id)
         url = f"{self.base_url}{path}"
 
-        for attempt in range(_MAX_RETRIES + 1):
-            is_last_attempt = attempt == _MAX_RETRIES
+        method_upper = method.upper()
+        is_idempotent = method_upper in _IDEMPOTENT_METHODS
+        max_attempts = _MAX_RETRIES + 1 if is_idempotent else 1
+
+        for attempt in range(max_attempts):
+            is_last_attempt = attempt == max_attempts - 1
             try:
                 async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
                     response = await client.request(method, url, headers=headers, **kwargs)
             except httpx.ConnectError as exc:
                 logger.error(
                     "API connect error [%s %s] attempt %d/%d: %s",
-                    method, url, attempt + 1, _MAX_RETRIES + 1, exc,
+                    method, url, attempt + 1, max_attempts, exc,
                 )
                 if not is_last_attempt:
                     await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
@@ -81,7 +90,7 @@ class APIClient:
             except httpx.TimeoutException as exc:
                 logger.error(
                     "API timeout [%s %s] attempt %d/%d: %s",
-                    method, url, attempt + 1, _MAX_RETRIES + 1, exc,
+                    method, url, attempt + 1, max_attempts, exc,
                 )
                 if not is_last_attempt:
                     await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
@@ -104,7 +113,9 @@ class APIClient:
                     method, url, response.status_code, body_preview,
                 )
 
-                # Retry server errors (5xx) a few times
+                # Retry server errors (5xx) only for idempotent methods — a
+                # non-idempotent POST may have already been committed on the
+                # server and retrying would duplicate the record.
                 if 500 <= response.status_code < 600 and not is_last_attempt:
                     await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
                     continue
