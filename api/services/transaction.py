@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -10,15 +11,25 @@ from api.models.transaction import Transaction, TransactionType
 from api.schemas.transaction import TransactionCreate, TransactionRead, TransactionUpdate
 
 
+def _transaction_query():
+    """Base query that eagerly loads all needed relations."""
+    return select(Transaction).options(
+        selectinload(Transaction.tags),
+        selectinload(Transaction.category),
+        selectinload(Transaction.account),
+        selectinload(Transaction.to_account),
+    )
+
+
 async def _load_transaction(db: AsyncSession, transaction_id: int, user_id: int) -> Transaction:
     result = await db.execute(
-        select(Transaction)
-        .options(selectinload(Transaction.tags))
-        .where(Transaction.id == transaction_id, Transaction.user_id == user_id)
+        _transaction_query().where(
+            Transaction.id == transaction_id,
+            Transaction.user_id == user_id,
+        )
     )
     t = result.scalar_one_or_none()
     if t is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Транзакцію не знайдено")
     return t
 
@@ -34,11 +45,8 @@ async def list_transactions(
     limit: int = 50,
     offset: int = 0,
 ) -> list[TransactionRead]:
-    query = (
-        select(Transaction)
-        .options(selectinload(Transaction.tags))
-        .where(Transaction.user_id == user_id)
-    )
+    query = _transaction_query().where(Transaction.user_id == user_id)
+
     if period_start:
         query = query.where(Transaction.date >= period_start)
     if period_end:
@@ -83,8 +91,7 @@ async def count_transactions(
 
 async def get_recent(db: AsyncSession, user_id: int, n: int = 20) -> list[TransactionRead]:
     result = await db.execute(
-        select(Transaction)
-        .options(selectinload(Transaction.tags))
+        _transaction_query()
         .where(Transaction.user_id == user_id)
         .order_by(Transaction.date.desc(), Transaction.id.desc())
         .limit(n)

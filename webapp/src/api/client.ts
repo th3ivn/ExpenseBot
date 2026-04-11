@@ -42,7 +42,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const api = {
   transactions: {
     list(params?: {
-      skip?: number;
+      offset?: number;
       limit?: number;
       type?: TransactionType;
       category_id?: number;
@@ -276,10 +276,30 @@ export const api = {
     list(): Promise<RecurringTransaction[]> {
       return request<RecurringTransaction[]>('/recurring');
     },
-    create(data: Omit<RecurringTransaction, 'id'>): Promise<RecurringTransaction> {
+    create(data: {
+      type: TransactionType;
+      amount: number;
+      description?: string;
+      category_id?: number;
+      account_id: number;
+      to_account_id?: number;
+      frequency: RecurringFrequency;
+      next_date: string;
+      is_active?: boolean;
+    }): Promise<RecurringTransaction> {
       return request<RecurringTransaction>('/recurring', { method: 'POST', body: JSON.stringify(data) });
     },
-    update(id: number, data: Partial<RecurringTransaction>): Promise<RecurringTransaction> {
+    update(id: number, data: Partial<{
+      type: TransactionType;
+      amount: number;
+      description: string;
+      category_id: number;
+      account_id: number;
+      to_account_id: number;
+      frequency: RecurringFrequency;
+      next_date: string;
+      is_active: boolean;
+    }>): Promise<RecurringTransaction> {
       return request<RecurringTransaction>(`/recurring/${id}`, { method: 'PUT', body: JSON.stringify(data) });
     },
     delete(id: number): Promise<void> {

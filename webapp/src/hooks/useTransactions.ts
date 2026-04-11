@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import type { Transaction, TransactionType, RecurringFrequency } from '../types';
 
 export function useTransactions(params?: {
-  skip?: number;
+  offset?: number;
   limit?: number;
   type?: TransactionType;
   category_id?: number;
@@ -15,8 +15,8 @@ export function useTransactions(params?: {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Extract primitives to avoid JSON.stringify in dep array
-  const skip = params?.skip;
+  // Extract primitives to avoid object reference churn in dep array
+  const offset = params?.offset;
   const limit = params?.limit;
   const type = params?.type;
   const category_id = params?.category_id;
@@ -29,7 +29,7 @@ export function useTransactions(params?: {
     setError(null);
     try {
       const data = await api.transactions.list({
-        skip,
+        offset,
         limit,
         type,
         category_id,
@@ -43,7 +43,7 @@ export function useTransactions(params?: {
     } finally {
       setLoading(false);
     }
-  }, [skip, limit, type, category_id, account_id, date_from, date_to]);
+  }, [offset, limit, type, category_id, account_id, date_from, date_to]);
 
   useEffect(() => {
     fetch();

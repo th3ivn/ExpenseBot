@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -84,7 +85,6 @@ async def update_account(
     )
     acc = result.scalar_one_or_none()
     if acc is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Рахунок не знайдено")
 
     for field, value in data.model_dump(exclude_none=True).items():
@@ -103,6 +103,5 @@ async def delete_account(db: AsyncSession, user_id: int, account_id: int) -> Non
     )
     acc = result.scalar_one_or_none()
     if acc is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Рахунок не знайдено")
     await db.delete(acc)
