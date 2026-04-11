@@ -39,7 +39,10 @@ class Transaction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    type: Mapped[TransactionType] = mapped_column(Enum(TransactionType), nullable=False)
+    type: Mapped[TransactionType] = mapped_column(
+        Enum(TransactionType, name="transaction_type", create_type=False),
+        nullable=False,
+    )
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     merchant: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
