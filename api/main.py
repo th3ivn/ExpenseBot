@@ -22,10 +22,6 @@ from api.routers import (
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
-    from api.database.session import engine
-    from api.models.base import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
 
 
@@ -64,6 +60,34 @@ app.include_router(merchant_rules.router, prefix=API_PREFIX)
 @app.get("/health", tags=["health"])
 async def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/debug/schema", tags=["debug"])
+async def debug_schema():
+    """Temporary diagnostic endpoint — shows current DB schema for transactions.
+
+    This endpoint is intentionally unauthenticated so the schema can be
+    inspected directly from a browser.  Remove it once the schema issue
+    is confirmed to be resolved.
+    """
+    from api.database.session import engine
+    from sqlalchemy import text
+    async with engine.connect() as conn:
+        result = await conn.execute(text(
+            "SELECT column_name, data_type, is_nullable, column_default "
+            "FROM information_schema.columns "
+            "WHERE table_name = 'transactions' "
+            "ORDER BY ordinal_position"
+        ))
+        columns = [dict(row._mapping) for row in result.all()]
+
+        tables_result = await conn.execute(text(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'public' ORDER BY table_name"
+        ))
+        tables = [row[0] for row in tables_result.all()]
+
+    return {"transactions_columns": columns, "tables": tables}
 
 
 if __name__ == "__main__":
