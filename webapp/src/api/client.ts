@@ -1,4 +1,5 @@
 import { getInitData } from '../utils/telegram';
+import { getSavingsLevel } from '../utils/format';
 import type {
   Transaction,
   Category,
@@ -10,6 +11,7 @@ import type {
   StatsSummary,
   TrendData,
   BreakdownData,
+  BreakdownItem,
   SavingsRateData,
   UserSettings,
   MerchantRule,
@@ -150,33 +152,122 @@ export const api = {
   },
 
   // ── Budget ─────────────────────────────────────────────────────
+  // Backend: GET /api/budgets/current → { budget, period_start, period_end, distributed, available }
   budget: {
-    get(): Promise<Budget | null> {
-      return request<Budget | null>('/budget');
+    async get(): Promise<Budget | null> {
+      const raw = await request<{ budget: Budget | null; period_start: string; period_end: string; distributed: number; available: number }>('/budgets/current');
+      return raw.budget;
     },
-    set(data: { amount: number; period_start_day?: number }): Promise<Budget> {
-      return request<Budget>('/budget', { method: 'POST', body: JSON.stringify(data) });
+    async set(data: { amount: number; period_start_day?: number }): Promise<Budget> {
+      return request<Budget>('/budgets', { method: 'POST', body: JSON.stringify(data) });
     },
-    progress(): Promise<BudgetProgress> {
-      return request<BudgetProgress>('/budget/progress');
+    async progress(): Promise<BudgetProgress> {
+      const raw = await request<{
+        budget: { amount: number } | null;
+        period_start: string;
+        period_end: string;
+        distributed: number;
+        available: number;
+      }>('/budgets/current');
+      return {
+        budget_amount: Number(raw.budget?.amount ?? 0),
+        distributed: Number(raw.distributed),
+        available: Number(raw.available),
+        period_start: raw.period_start,
+        period_end: raw.period_end,
+      };
     },
   },
 
   // ── Stats ──────────────────────────────────────────────────────
+  // Backend returns different shapes — adapt them to frontend types here.
   stats: {
     summary(): Promise<StatsSummary> {
       return request<StatsSummary>('/stats/summary');
     },
-    trend(months?: number): Promise<TrendData[]> {
-      const q = months ? `?months=${months}` : '';
-      return request<TrendData[]>(`/stats/trend${q}`);
+    async trend(): Promise<TrendData[]> {
+      const raw = await request<{
+        current_period: Array<{ date: string; amount: number }>;
+        avg_daily_prev: number;
+      }>('/stats/trend');
+      const avg = Number(raw.avg_daily_prev ?? 0);
+      return (raw.current_period ?? []).map((p) => ({
+        date: p.date,
+        current: Number(p.amount),
+        average: avg,
+      }));
     },
-    breakdown(period?: string): Promise<BreakdownData> {
-      const q = period ? `?period=${period}` : '';
-      return request<BreakdownData>(`/stats/breakdown${q}`);
+    async breakdown(): Promise<BreakdownData> {
+      const raw = await request<{
+        items: Array<{
+          category_name: string;
+          group_name: string | null;
+          emoji: string;
+          color: string;
+          total: number;
+          percentage: number;
+        }>;
+        total: number;
+      }>('/stats/breakdown');
+      const items = raw.items ?? [];
+      const total = Number(raw.total ?? 0);
+
+      const categories: BreakdownItem[] = items.map((i) => ({
+        name: i.category_name,
+        emoji: i.emoji,
+        color: i.color,
+        amount: Number(i.total),
+        percentage: Number(i.percentage),
+      }));
+
+      // Aggregate categories into groups by group_name
+      const groupMap = new Map<string, BreakdownItem>();
+      items.forEach((i) => {
+        const key = i.group_name ?? i.category_name;
+        const existing = groupMap.get(key);
+        if (existing) {
+          existing.amount += Number(i.total);
+        } else {
+          groupMap.set(key, {
+            name: key,
+            emoji: i.emoji,
+            color: i.color,
+            amount: Number(i.total),
+            percentage: 0,
+          });
+        }
+      });
+      const groups: BreakdownItem[] = Array.from(groupMap.values()).map((g) => ({
+        ...g,
+        percentage: total > 0 ? (g.amount / total) * 100 : 0,
+      }));
+
+      return { categories, groups, total };
     },
-    savingsRate(): Promise<SavingsRateData> {
-      return request<SavingsRateData>('/stats/savings-rate');
+    async savingsRate(): Promise<SavingsRateData> {
+      const raw = await request<{
+        year: number;
+        months: Array<{ month: string; income: number; expenses: number; savings_rate: number }>;
+        avg_savings_rate: number;
+      }>('/stats/savings-rate');
+      const rate = Number(raw.avg_savings_rate ?? 0);
+      const months = raw.months ?? [];
+      const totalIncome = months.reduce((s, m) => s + Number(m.income), 0);
+      const totalExpenses = months.reduce((s, m) => s + Number(m.expenses), 0);
+      const level = getSavingsLevel(rate);
+      return {
+        rate,
+        income: totalIncome,
+        savings: totalIncome - totalExpenses,
+        level: level.label,
+        level_color: level.color,
+        monthly: months.map((m) => ({
+          month: m.month,
+          rate: Number(m.savings_rate),
+          income: Number(m.income),
+          expenses: Number(m.expenses),
+        })),
+      };
     },
   },
 

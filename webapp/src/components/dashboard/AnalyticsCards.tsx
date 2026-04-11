@@ -29,7 +29,7 @@ export function AnalyticsCards({
         100
       : 0;
 
-  const topCategories = breakdown?.categories.slice(0, 3) ?? [];
+  const topCategories = breakdown?.categories?.slice(0, 3) ?? [];
 
   const savingsLevel = savingsRate ? getSavingsLevel(savingsRate.rate) : null;
 

@@ -16,7 +16,7 @@ interface LineChartProps {
 
 export function LineChart({ data, mini }: LineChartProps) {
   if (mini) {
-    if (data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
       return <div style={{ height: 40 }} />;
     }
     return (
@@ -44,7 +44,7 @@ export function LineChart({ data, mini }: LineChartProps) {
     );
   }
 
-  if (data.length === 0) {
+  if (!Array.isArray(data) || data.length === 0) {
     return (
       <div
         style={{ height: 220 }}
