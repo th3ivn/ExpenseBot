@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Optional
@@ -7,6 +8,39 @@ import httpx
 logger = logging.getLogger(__name__)
 
 TRANSACTIONS_PER_PAGE = 5
+
+_MAX_RETRIES = 2
+_RETRY_BASE_DELAY = 0.5
+_REQUEST_TIMEOUT = 10.0
+
+
+class APIError(Exception):
+    """Raised when an API request fails. Carries a user-facing hint."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: Optional[int] = None,
+        hint: Optional[str] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.hint = hint or "Помилка звʼязку з сервером"
+
+
+def _hint_for_status(status_code: int) -> str:
+    if status_code == 401:
+        return "Помилка авторизації (перевір BOT_TOKEN на API)"
+    if status_code == 403:
+        return "Немає доступу до ресурсу"
+    if status_code == 404:
+        return "Ресурс не знайдено"
+    if status_code == 422:
+        return "Некоректні дані запиту"
+    if 500 <= status_code < 600:
+        return "Внутрішня помилка сервера API"
+    return f"Помилка API (HTTP {status_code})"
 
 
 class APIClient:
@@ -26,12 +60,78 @@ class APIClient:
         if telegram_user_id is not None:
             headers["X-Telegram-User-Id"] = str(telegram_user_id)
         url = f"{self.base_url}{path}"
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.request(method, url, headers=headers, **kwargs)
-            response.raise_for_status()
+
+        for attempt in range(_MAX_RETRIES + 1):
+            is_last_attempt = attempt == _MAX_RETRIES
+            try:
+                async with httpx.AsyncClient(timeout=_REQUEST_TIMEOUT) as client:
+                    response = await client.request(method, url, headers=headers, **kwargs)
+            except httpx.ConnectError as exc:
+                logger.error(
+                    "API connect error [%s %s] attempt %d/%d: %s",
+                    method, url, attempt + 1, _MAX_RETRIES + 1, exc,
+                )
+                if not is_last_attempt:
+                    await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
+                    continue
+                raise APIError(
+                    f"Cannot connect to API at {self.base_url}",
+                    hint="Сервер API недоступний",
+                ) from exc
+            except httpx.TimeoutException as exc:
+                logger.error(
+                    "API timeout [%s %s] attempt %d/%d: %s",
+                    method, url, attempt + 1, _MAX_RETRIES + 1, exc,
+                )
+                if not is_last_attempt:
+                    await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
+                    continue
+                raise APIError(
+                    f"API timeout on {method} {path}",
+                    hint="Сервер API не відповідає",
+                ) from exc
+            except httpx.HTTPError as exc:
+                logger.error("API transport error [%s %s]: %s", method, url, exc)
+                raise APIError(
+                    f"Transport error on {method} {path}: {exc}",
+                    hint="Помилка мережі",
+                ) from exc
+
+            if response.status_code >= 400:
+                body_preview = response.text[:500] if response.text else ""
+                logger.error(
+                    "API error [%s %s] -> HTTP %d: %s",
+                    method, url, response.status_code, body_preview,
+                )
+
+                # Retry server errors (5xx) a few times
+                if 500 <= response.status_code < 600 and not is_last_attempt:
+                    await asyncio.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
+                    continue
+
+                raise APIError(
+                    f"HTTP {response.status_code} on {method} {path}: {body_preview}",
+                    status_code=response.status_code,
+                    hint=_hint_for_status(response.status_code),
+                )
+
             if response.status_code == 204:
                 return None
-            return response.json()
+
+            try:
+                return response.json()
+            except ValueError as exc:
+                logger.error(
+                    "Invalid JSON from [%s %s]: %s | body: %s",
+                    method, url, exc, response.text[:500],
+                )
+                raise APIError(
+                    f"Invalid JSON in response from {path}",
+                    hint="Некоректна відповідь API",
+                ) from exc
+
+        # Defensive — should never reach here.
+        raise APIError("Request failed after retries", hint="Помилка запиту")
 
     async def get_default_account_id(self, telegram_user_id: int) -> int:
         accounts = await self._request("GET", "/api/accounts", telegram_user_id=telegram_user_id)
@@ -44,13 +144,6 @@ class APIClient:
             json={"name": "Готівка", "emoji": "💵", "opening_balance": "0"},
         )
         return new_account["id"]
-
-    async def get_summary(self, telegram_user_id: int) -> dict:
-        return await self._request(
-            "GET",
-            "/api/stats/summary",
-            telegram_user_id=telegram_user_id,
-        )
 
     async def get_transactions(
         self,
@@ -91,14 +184,6 @@ class APIClient:
         )
         return result["count"]
 
-    async def get_recent_transactions(self, telegram_user_id: int, limit: int = 5) -> list:
-        return await self._request(
-            "GET",
-            "/api/transactions/recent",
-            telegram_user_id=telegram_user_id,
-            params={"n": limit},
-        )
-
     async def create_transaction(
         self,
         telegram_user_id: int,
@@ -128,9 +213,10 @@ class APIClient:
                 telegram_user_id=telegram_user_id,
             )
             return True
-        except httpx.HTTPStatusError as exc:
-            logger.warning("Failed to delete transaction %d: %s", transaction_id, exc)
-            return False
+        except APIError as exc:
+            if exc.status_code == 404:
+                return False
+            raise
 
     async def get_stats_for_period(
         self,

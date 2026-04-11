@@ -4,7 +4,7 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
-from bot.api_client import APIClient
+from bot.api_client import APIClient, APIError
 from bot.keyboards.main import get_stats_period_keyboard
 from bot.services.stats import format_stats_message, get_stats_for_period
 from bot.state import set_last_menu_message
@@ -61,9 +61,12 @@ async def cb_stats_period(callback: CallbackQuery, api_client: APIClient) -> Non
     try:
         stats = await get_stats_for_period(callback.from_user.id, period, api_client)
         text = format_stats_message(stats, label)
-    except Exception as exc:
-        logger.error("Failed to load stats: %s", exc)
-        text = "⚠️ Помилка завантаження статистики. Спробуйте ще раз."
+    except APIError as exc:
+        logger.error("Failed to load stats (API error): %s", exc)
+        text = f"⚠️ {exc.hint}.\nСпробуйте ще раз."
+    except Exception:
+        logger.exception("Unexpected error while loading stats")
+        text = "⚠️ Неочікувана помилка. Спробуйте ще раз."
 
     await safe_edit_text(callback.message, text, reply_markup=get_stats_period_keyboard())
     set_last_menu_message(callback.from_user.id, callback.message.message_id)

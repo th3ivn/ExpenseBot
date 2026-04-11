@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from bot.api_client import APIClient
+from bot.api_client import APIClient, APIError
 from bot.keyboards.main import (
     get_after_save_keyboard,
     get_back_to_menu_keyboard,
@@ -208,11 +208,19 @@ async def cb_add_confirm(callback: CallbackQuery, state: FSMContext, api_client:
             merchant=merchant,
             transaction_date=date,
         )
-    except Exception as exc:
-        logger.error("Failed to save transaction: %s", exc)
+    except APIError as exc:
+        logger.error("Failed to save transaction (API error): %s", exc)
         await safe_edit_text(
             callback.message,
-            "⚠️ Помилка збереження. Спробуйте ще раз.",
+            f"⚠️ {exc.hint}.\nСпробуйте ще раз.",
+            reply_markup=get_confirmation_keyboard(),
+        )
+        return
+    except Exception:
+        logger.exception("Unexpected error while saving transaction")
+        await safe_edit_text(
+            callback.message,
+            "⚠️ Неочікувана помилка. Спробуйте ще раз.",
             reply_markup=get_confirmation_keyboard(),
         )
         return
