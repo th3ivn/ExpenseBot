@@ -12,7 +12,13 @@ from api.schemas.transaction import TransactionCreate, TransactionRead, Transact
 
 
 def _transaction_query():
-    """Base query that eagerly loads all needed relations."""
+    """Base query with selectinload for all relations.
+
+    selectinload issues one additional SELECT per relationship (not per row),
+    which is the correct strategy for to-many and optional to-one relations —
+    it avoids the cartesian-product row explosion that joinedload produces on
+    collections while still preventing N+1 query patterns.
+    """
     return select(Transaction).options(
         selectinload(Transaction.tags),
         selectinload(Transaction.category),

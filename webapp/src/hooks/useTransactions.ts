@@ -8,8 +8,8 @@ export function useTransactions(params?: {
   type?: TransactionType;
   category_id?: number;
   account_id?: number;
-  date_from?: string;
-  date_to?: string;
+  period_start?: string;
+  period_end?: string;
 }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,8 +21,8 @@ export function useTransactions(params?: {
   const type = params?.type;
   const category_id = params?.category_id;
   const account_id = params?.account_id;
-  const date_from = params?.date_from;
-  const date_to = params?.date_to;
+  const period_start = params?.period_start;
+  const period_end = params?.period_end;
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -34,8 +34,8 @@ export function useTransactions(params?: {
         type,
         category_id,
         account_id,
-        date_from,
-        date_to,
+        period_start,
+        period_end,
       });
       setTransactions(data);
     } catch (e) {
@@ -43,7 +43,7 @@ export function useTransactions(params?: {
     } finally {
       setLoading(false);
     }
-  }, [offset, limit, type, category_id, account_id, date_from, date_to]);
+  }, [offset, limit, type, category_id, account_id, period_start, period_end]);
 
   useEffect(() => {
     fetch();

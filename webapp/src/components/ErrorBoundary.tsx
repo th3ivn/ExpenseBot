@@ -34,6 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
             {this.state.error?.message ?? 'Невідома помилка'}
           </p>
           <button
+            type="button"
             onClick={() => window.location.reload()}
             className="px-5 py-2.5 bg-accent-cyan text-bg-primary font-semibold rounded-xl text-sm"
           >

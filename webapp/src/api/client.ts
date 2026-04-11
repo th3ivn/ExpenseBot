@@ -47,8 +47,8 @@ export const api = {
       type?: TransactionType;
       category_id?: number;
       account_id?: number;
-      date_from?: string;
-      date_to?: string;
+      period_start?: string;
+      period_end?: string;
     }): Promise<Transaction[]> {
       const q = new URLSearchParams();
       if (params) {
